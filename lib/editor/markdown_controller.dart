@@ -9,6 +9,15 @@ import 'markdown_styler.dart';
 class MarkdownEditingController extends TextEditingController {
   MarkdownEditingController({super.text});
 
+  /// Whether the field has focus. Without it no line shows its syntax: a
+  /// leftover caret position must not keep revealing markers.
+  bool _focused = false;
+  set focused(bool value) {
+    if (_focused == value) return;
+    _focused = value;
+    notifyListeners();
+  }
+
   bool _wysiwyg = false;
   bool get wysiwyg => _wysiwyg;
   set wysiwyg(bool value) {
@@ -34,7 +43,10 @@ class MarkdownEditingController extends TextEditingController {
       base: style ?? DefaultTextStyle.of(context).style,
       scheme: Theme.of(context).colorScheme,
     );
-    return styler.build(text, selection);
+    return styler.build(
+      text,
+      _focused ? selection : const TextSelection.collapsed(offset: -1),
+    );
   }
 
   // --- Formatting commands, shared by the toolbar and the shortcuts. ---

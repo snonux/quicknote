@@ -27,9 +27,22 @@ class PreferencesService {
     return defaultNotesDirectory();
   }
 
+  /// The directory exactly as stored, or null while the default applies.
+  Future<String?> storedDirectory() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_kDirectory);
+    return stored == null || stored.isEmpty ? null : stored;
+  }
+
   Future<void> setDirectory(String value) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kDirectory, value);
+  }
+
+  /// Forget the chosen directory so [directory] falls back to the default.
+  Future<void> clearDirectory() async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.remove(_kDirectory);
   }
 
   /// An Android folder picked with the system picker, or null when the

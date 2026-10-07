@@ -197,4 +197,59 @@ void main() {
     expect(store.notes['inbox.md'], 'edited');
     expect(find.byType(BackButton), findsNothing);
   });
+
+  testWidgets('Reload in the conflict dialog shows the version on disk', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), 'mine');
+    await tester.pump();
+    store.notes['inbox.md'] = 'theirs';
+    await tester.tap(find.byKey(const ValueKey('note-save')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    await tester.tap(find.text('Reload'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field()).controller!.text, 'theirs');
+    expect(find.text('Unsaved'), findsNothing);
+    expect(store.notes['inbox.md'], 'theirs');
+  });
+
+  testWidgets('a renamed note stays visible in the tree', (tester) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename / move note'));
+    await tester.pumpAndSettle();
+    await tester.enterText(
+      find.byKey(const ValueKey('path-field')),
+      'archive/old/inbox',
+    );
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    expect(store.notes.keys, contains('archive/old/inbox.md'));
+    expect(
+      find.byKey(const ValueKey('note:archive/old/inbox.md')),
+      findsOneWidget,
+    );
+    expect(tester.widget<TextField>(field()).controller!.text, '# Inbox\n');
+  });
+
+  testWidgets('a new note opens focused with the caret at the end', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('new-note')));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('path-field')), 'fresh');
+    await tester.tap(find.text('Create'));
+    await tester.pumpAndSettle();
+    final editor = tester.widget<TextField>(field());
+    expect(editor.focusNode!.hasFocus, isTrue);
+    expect(editor.controller!.selection.baseOffset, '# fresh\n\n'.length);
+  });
 }

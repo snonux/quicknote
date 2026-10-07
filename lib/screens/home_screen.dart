@@ -1,3 +1,5 @@
+import 'dart:io' show FileSystemException;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
@@ -28,7 +30,7 @@ class HomeScreen extends StatefulWidget {
   State<HomeScreen> createState() => _HomeScreenState();
 }
 
-class _HomeScreenState extends State<HomeScreen> {
+class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   NoteStore? _store;
   List<String> _notes = const [];
   NoteFolder _tree = NoteFolder.build(const []);
@@ -38,6 +40,9 @@ class _HomeScreenState extends State<HomeScreen> {
   String? _selected;
   EditorMode _mode = EditorMode.raw;
   bool _editorDirty = false;
+
+  /// A note just created here, so its editor opens focused at the end.
+  String? _created;
   final GlobalKey<NoteEditorState> _editorKey = GlobalKey();
 
   PreferencesService get _prefs => widget.preferences;
@@ -45,7 +50,22 @@ class _HomeScreenState extends State<HomeScreen> {
   @override
   void initState() {
     super.initState();
+    WidgetsBinding.instance.addObserver(this);
     _init();
+  }
+
+  @override
+  void dispose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.dispose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    // Notes may have arrived (Syncthing) or gone while the app was away.
+    if (state == AppLifecycleState.resumed && !_loading && _store != null) {
+      _reload();
+    }
   }
 
   Future<void> _init() async {
@@ -116,6 +136,7 @@ class _HomeScreenState extends State<HomeScreen> {
           store: store,
           path: path,
           initialMode: _mode,
+          autofocus: _created == path,
           onModeChanged: _setMode,
           onRename: () => _rename(path, fromNotePage: true),
           onDelete: () => _delete(path, fromNotePage: true),
@@ -153,6 +174,7 @@ class _HomeScreenState extends State<HomeScreen> {
       _snack('Could not create $path: $e', error: true);
       return;
     }
+    _created = path;
     await _reload();
     if (mounted) await _open(path);
   }
@@ -180,6 +202,7 @@ class _HomeScreenState extends State<HomeScreen> {
     }
     if (fromNotePage && mounted) Navigator.of(context).pop();
     if (_selected == path) _selected = target;
+    _expanded.addAll(ancestorFolders(target));
     await _reload();
     if (mounted && _twoPane) setState(() {});
   }
@@ -305,6 +328,16 @@ class _HomeScreenState extends State<HomeScreen> {
     );
   }
 
+  static String _describe(Object error) => switch (error) {
+    FileSystemException(:final message, :final path, :final osError) => [
+      message,
+      if (osError != null && osError.message.isNotEmpty) osError.message,
+      ?path,
+    ].join(': '),
+    PlatformException(:final message, :final code) => message ?? code,
+    _ => '$error',
+  };
+
   void _snack(String message, {bool error = false}) {
     if (!mounted) return;
     final messenger = ScaffoldMessenger.of(context);
@@ -423,7 +456,7 @@ class _HomeScreenState extends State<HomeScreen> {
             mainAxisSize: MainAxisSize.min,
             children: [
               Text(
-                'Cannot read the notes folder:\n$error',
+                'Cannot read the notes folder:\n${_describe(error)}',
                 textAlign: TextAlign.center,
               ),
               const SizedBox(height: 16),
@@ -460,7 +493,9 @@ class _HomeScreenState extends State<HomeScreen> {
         SizedBox(width: 300, child: _treePane()),
         const VerticalDivider(width: 1),
         Expanded(
-          child: store == null || selected == null
+          child: _error != null || _loading
+              ? const SizedBox.shrink()
+              : store == null || selected == null
               ? Center(
                   child: Text(
                     _notes.isEmpty
@@ -474,6 +509,7 @@ class _HomeScreenState extends State<HomeScreen> {
                   store: store,
                   path: selected,
                   initialMode: _mode,
+                  autofocus: _created == selected,
                   onModeChanged: _setMode,
                   onDirtyChanged: (d) => setState(() => _editorDirty = d),
                 ),
@@ -489,6 +525,7 @@ class _NotePage extends StatefulWidget {
     required this.store,
     required this.path,
     required this.initialMode,
+    required this.autofocus,
     required this.onModeChanged,
     required this.onRename,
     required this.onDelete,
@@ -497,6 +534,7 @@ class _NotePage extends StatefulWidget {
   final NoteStore store;
   final String path;
   final EditorMode initialMode;
+  final bool autofocus;
   final ValueChanged<EditorMode> onModeChanged;
   final VoidCallback onRename;
   final VoidCallback onDelete;
@@ -560,6 +598,7 @@ class _NotePageState extends State<_NotePage> {
             store: widget.store,
             path: widget.path,
             initialMode: widget.initialMode,
+            autofocus: widget.autofocus,
             onModeChanged: widget.onModeChanged,
             onDirtyChanged: (d) => setState(() => _dirty = d),
           ),

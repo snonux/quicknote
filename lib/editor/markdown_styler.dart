@@ -155,12 +155,33 @@ class MarkdownStyler {
   }
 
   void _line(String line, bool active, List<InlineSpan> out) {
-    // The newline is painted with the base style so every line keeps a
-    // normal height even when its content is hidden or small.
     final hasNl = line.endsWith('\n');
     final body = hasNl ? line.substring(0, line.length - 1) : line;
+    final first = out.length;
     _lineBody(body, active, out);
-    if (hasNl) out.add(const TextSpan(text: '\n'));
+    if (!hasNl) return;
+    // The newline takes the style of the line's last visible text. With a
+    // smaller style (say, base after a heading), a click past the end of the
+    // line resolves to the start of the next line, so typing lands there.
+    TextStyle? style;
+    for (var i = out.length - 1; i >= first; i--) {
+      final span = out[i];
+      if (span is TextSpan &&
+          (span.text?.isNotEmpty ?? false) &&
+          span.style != _hidden) {
+        style = span.style;
+        break;
+      }
+    }
+    out.add(
+      TextSpan(
+        text: '\n',
+        style: style?.copyWith(
+          decoration: TextDecoration.none,
+          backgroundColor: Colors.transparent,
+        ),
+      ),
+    );
   }
 
   void _lineBody(String line, bool active, List<InlineSpan> out) {

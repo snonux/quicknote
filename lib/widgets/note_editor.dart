@@ -6,6 +6,8 @@ import '../services/note_store.dart';
 import '../services/preferences.dart';
 import 'format_toolbar.dart';
 
+enum _Conflict { cancel, reload, overwrite }
+
 /// What the user chose when leaving a note with unsaved edits.
 enum LeaveDecision { save, discard, stay }
 
@@ -24,6 +26,7 @@ class NoteEditor extends StatefulWidget {
     required this.initialMode,
     this.onModeChanged,
     this.onDirtyChanged,
+    this.autofocus = false,
   });
 
   final NoteStore store;
@@ -31,6 +34,10 @@ class NoteEditor extends StatefulWidget {
   final EditorMode initialMode;
   final ValueChanged<EditorMode>? onModeChanged;
   final ValueChanged<bool>? onDirtyChanged;
+
+  /// Focus the field with the caret at the end once loaded, e.g. for a note
+  /// that was just created.
+  final bool autofocus;
 
   @override
   State<NoteEditor> createState() => NoteEditorState();
@@ -59,6 +66,7 @@ class NoteEditorState extends State<NoteEditor> {
     super.initState();
     _controller.wysiwyg = _mode == EditorMode.wysiwyg;
     _controller.addListener(_onChanged);
+    _focus.addListener(_onFocus);
     _load();
   }
 
@@ -78,10 +86,13 @@ class NoteEditorState extends State<NoteEditor> {
   void dispose() {
     _controller.removeListener(_onChanged);
     _controller.dispose();
+    _focus.removeListener(_onFocus);
     _focus.dispose();
     _scroll.dispose();
     super.dispose();
   }
+
+  void _onFocus() => _controller.focused = _focus.hasFocus;
 
   void _onChanged() {
     final d = dirty;
@@ -100,7 +111,9 @@ class NoteEditorState extends State<NoteEditor> {
       _original = text;
       _controller.value = TextEditingValue(
         text: text,
-        selection: const TextSelection.collapsed(offset: 0),
+        selection: TextSelection.collapsed(
+          offset: widget.autofocus ? text.length : 0,
+        ),
       );
       _loadError = null;
     } catch (e) {
@@ -111,6 +124,11 @@ class NoteEditorState extends State<NoteEditor> {
     }
     setState(() => _loading = false);
     _onChanged();
+    if (widget.autofocus && _loadError == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
   }
 
   void setMode(EditorMode mode) {
@@ -133,9 +151,22 @@ class NoteEditorState extends State<NoteEditor> {
       final onDisk = await widget.store.read(widget.path);
       if (onDisk != _original && onDisk != text) {
         if (!mounted) return false;
-        final overwrite = await _confirmOverwrite();
-        if (!overwrite) {
-          if (mounted) setState(() => _saving = false);
+        final choice = await _confirmOverwrite();
+        if (choice != _Conflict.overwrite) {
+          if (!mounted) return false;
+          setState(() => _saving = false);
+          if (choice == _Conflict.reload) {
+            _original = onDisk;
+            _controller.value = TextEditingValue(
+              text: onDisk,
+              selection: TextSelection.collapsed(
+                offset: _controller.selection.baseOffset.clamp(
+                  0,
+                  onDisk.length,
+                ),
+              ),
+            );
+          }
           return false;
         }
       }
@@ -200,28 +231,33 @@ class NoteEditorState extends State<NoteEditor> {
     }
   }
 
-  Future<bool> _confirmOverwrite() async {
-    final answer = await showDialog<bool>(
+  Future<_Conflict> _confirmOverwrite() async {
+    final answer = await showDialog<_Conflict>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Changed on disk'),
         content: Text(
           '${widget.path} was changed outside Quicknote since you opened it. '
-          'Saving replaces those changes with yours.',
+          'Overwrite replaces those changes with yours; Reload discards '
+          'your edits and shows the version on disk.',
         ),
         actions: [
           TextButton(
-            onPressed: () => Navigator.of(ctx).pop(false),
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.cancel),
             child: const Text('Cancel'),
           ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.reload),
+            child: const Text('Reload'),
+          ),
           FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(true),
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.overwrite),
             child: const Text('Overwrite'),
           ),
         ],
       ),
     );
-    return answer ?? false;
+    return answer ?? _Conflict.cancel;
   }
 
   void _snack(String message, {bool error = false}) {

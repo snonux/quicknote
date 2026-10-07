@@ -66,6 +66,22 @@ void main() {
       expect(lines[7], startsWith('• '));
     });
 
+    // A smaller newline after a heading made clicks past the end of the
+    // heading land on the next line.
+    test('a line break takes the size of the line it ends', () {
+      final span = styler.build(
+        '# Big\nsmall',
+        const TextSelection.collapsed(offset: -1),
+      );
+      final spans = <TextSpan>[];
+      span.visitChildren((s) {
+        if (s is TextSpan && s.text != null) spans.add(s);
+        return true;
+      });
+      final nl = spans.firstWhere((s) => s.text == '\n');
+      expect(nl.style!.fontSize, greaterThan(14));
+    });
+
     test('empty text and a trailing newline are fine', () {
       expect(
         plain(styler.build('', const TextSelection.collapsed(offset: 0))),

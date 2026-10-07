@@ -43,7 +43,7 @@ class NoteTreeView extends StatelessWidget {
         child: Padding(
           padding: EdgeInsets.all(24),
           child: Text(
-            'No markdown notes in this folder yet.\nUse + to create one.',
+            'No markdown notes in this folder yet.\nUse the new-note button to create one.',
             textAlign: TextAlign.center,
           ),
         ),

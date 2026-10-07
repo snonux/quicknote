@@ -1,4 +1,4 @@
-import 'dart:io' show Platform;
+import 'dart:io' show Directory, FileSystemException, Platform;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
@@ -87,8 +87,12 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   Future<void> _checkAccess() async {
     final folder = _scopedFolder;
     if (folder == null) {
-      final writable = await canWriteToDirectory(_dirController.text);
-      if (mounted) setState(() => _directoryWritable = writable);
+      final path = _dirController.text;
+      final writable = await canWriteToDirectory(path);
+      // Typing re-checks on every change; only the latest answer counts.
+      if (mounted && path == _dirController.text) {
+        setState(() => _directoryWritable = writable);
+      }
       return;
     }
     var accessible = true;
@@ -153,9 +157,29 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   }
 
   Future<void> _save() async {
-    final previous = await _prefs.scopedFolder();
-    await _prefs.setDirectory(_dirController.text.trim());
     final folder = _scopedFolder;
+    final directory = _dirController.text.trim();
+    if (directory.isEmpty && folder == null) {
+      ScaffoldMessenger.of(
+        context,
+      ).showSnackBar(const SnackBar(content: Text('Enter a notes folder.')));
+      return;
+    }
+    final previous = await _prefs.scopedFolder();
+    // The default stays "default", so it follows the platform's location.
+    if (directory.isEmpty || directory == await defaultNotesDirectory()) {
+      await _prefs.clearDirectory();
+    } else {
+      await _prefs.setDirectory(directory);
+    }
+    if (folder == null) {
+      // Choosing a folder that does not exist yet means "start one here".
+      try {
+        await Directory(directory).create(recursive: true);
+      } on FileSystemException {
+        // The home screen reports a folder it cannot read.
+      }
+    }
     if (folder == null) {
       await _prefs.clearScopedFolder();
     } else {
@@ -223,7 +247,10 @@ class _PreferencesScreenState extends State<PreferencesScreen>
           TextField(
             key: const ValueKey('prefs.directory'),
             controller: _dirController,
-            onChanged: (_) => setState(() => _scopedFolder = null),
+            onChanged: (_) {
+              setState(() => _scopedFolder = null);
+              _checkAccess();
+            },
             onSubmitted: (_) => _checkAccess(),
             decoration: InputDecoration(
               border: const OutlineInputBorder(),
