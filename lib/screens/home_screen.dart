@@ -1,16 +1,18 @@
-import 'dart:io' show Platform;
+import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../services/active_store.dart';
 import '../services/app_version.dart';
+import '../services/directory_note_store.dart';
 import '../services/note_export.dart';
 import '../services/note_index.dart';
 import '../services/note_store.dart';
 import '../services/note_tree.dart';
 import '../services/preferences.dart';
 import '../services/share_service.dart';
+import '../services/storage_access_service.dart';
 import '../widgets/feedback.dart';
 import '../widgets/note_dialogs.dart';
 import '../widgets/note_editor.dart';
@@ -147,7 +149,17 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _index.value = null;
         _tagFilter = null;
       }
-      final notes = await _store!.list();
+      final store = _store!;
+      // Without All files access Android 11+ lists such a folder as empty.
+      if (store is DirectoryNoteStore &&
+          await StorageAccessService.needsAllFilesAccess(store.root)) {
+        throw FileSystemException(
+          'TurboNotes needs All files access to see the notes in this folder. '
+          'Grant it in Preferences',
+          store.root,
+        );
+      }
+      final notes = await store.list();
       if (!mounted) return;
       setState(() {
         _notes = notes;

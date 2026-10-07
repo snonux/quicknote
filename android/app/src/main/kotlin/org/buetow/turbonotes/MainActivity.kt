@@ -10,6 +10,7 @@ import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
+import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
@@ -19,6 +20,7 @@ import io.flutter.embedding.android.FlutterActivity
 import io.flutter.embedding.engine.FlutterEngine
 import io.flutter.plugin.common.MethodCall
 import io.flutter.plugin.common.MethodChannel
+import java.io.File
 import java.io.FileNotFoundException
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
@@ -45,6 +47,7 @@ class MainActivity : FlutterActivity() {
             when (call.method) {
                 "storageApiLevel" -> result.success(Build.VERSION.SDK_INT)
                 "requestStorageAccess" -> requestStorageAccess(result)
+                "needsAllFilesAccess" -> result.success(needsAllFilesAccess(call.requireString("path")))
                 else -> result.notImplemented()
             }
         }
@@ -272,6 +275,24 @@ class MainActivity : FlutterActivity() {
     private fun hasLegacyStoragePermission(): Boolean =
         checkSelfPermission(Manifest.permission.READ_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED &&
             checkSelfPermission(Manifest.permission.WRITE_EXTERNAL_STORAGE) == PackageManager.PERMISSION_GRANTED
+
+    /**
+     * On Android 11+ an app without All files access can still create its own
+     * files in shared folders such as Documents, so a write probe succeeds,
+     * but every note another app or a sync tool put there stays invisible.
+     * Only the app's own directories work without the permission.
+     */
+    private fun needsAllFilesAccess(path: String): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R || Environment.isExternalStorageManager()) {
+            return false
+        }
+        val target = File(path).canonicalFile
+        if (!target.path.startsWith("/storage/")) return false
+        val own = (getExternalFilesDirs(null) + externalCacheDirs + obbDirs)
+            .filterNotNull()
+            .mapNotNull { it.parentFile?.canonicalFile }
+        return own.none { target.startsWith(it) }
+    }
 
     private fun requestStorageAccess(result: MethodChannel.Result) {
         if (Build.VERSION.SDK_INT < Build.VERSION_CODES.R) {

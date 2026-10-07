@@ -1,7 +1,10 @@
+import 'dart:io';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:turbonotes/screens/home_screen.dart';
+import 'package:turbonotes/services/directory_note_store.dart';
 import 'package:turbonotes/services/preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
@@ -54,6 +57,36 @@ void main() {
       find.byKey(const ValueKey('folder:projects/quicknote')),
       findsOneWidget,
     );
+  });
+
+  testWidgets('a shared folder without All files access says so', (
+    tester,
+  ) async {
+    // Android 11+ would list such a folder as empty instead of failing.
+    const channel = MethodChannel('org.buetow.turbonotes/storage');
+    final messenger =
+        TestDefaultBinaryMessengerBinding.instance.defaultBinaryMessenger;
+    messenger.setMockMethodCallHandler(
+      channel,
+      (call) async => call.method == 'needsAllFilesAccess',
+    );
+    addTearDown(() => messenger.setMockMethodCallHandler(channel, null));
+    final dir = Directory.systemTemp.createTempSync('turbonotes-shared');
+    addTearDown(() => dir.deleteSync(recursive: true));
+    tester.view.physicalSize = const Size(1200, 800);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: HomeScreen(
+          preferences: PreferencesService(),
+          storeFactory: () async => DirectoryNoteStore(dir.path),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(find.textContaining('needs All files access'), findsOneWidget);
+    expect(find.text('Choose notes folder'), findsOneWidget);
   });
 
   testWidgets('opening, editing and saving a note writes it back', (
