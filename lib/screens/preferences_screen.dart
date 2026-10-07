@@ -33,8 +33,8 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   final TextEditingController _defaultNoteController = TextEditingController();
   EditorMode _mode = EditorMode.raw;
   bool _loaded = false;
-  // Whether the typed directory is actually writable -- not whether the
-  // All files access permission is held. See canWriteToDirectory().
+  // Whether the typed directory is actually usable: writable, and on
+  // Android 11+ not a shared folder still missing All files access.
   bool _directoryWritable = true;
   ScopedFolder? _scopedFolder;
   final Set<String> _unsavedTreeUris = {};
@@ -93,7 +93,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
     final folder = _scopedFolder;
     if (folder == null) {
       final path = _dirController.text;
-      final writable = await canWriteToDirectory(path);
+      final writable = await _directoryUsable(path);
       // Typing re-checks on every change; only the latest answer counts.
       if (mounted && path == _dirController.text) {
         setState(() => _directoryWritable = writable);
@@ -108,6 +108,10 @@ class _PreferencesScreenState extends State<PreferencesScreen>
     }
     if (mounted) setState(() => _scopedAccessible = accessible);
   }
+
+  Future<bool> _directoryUsable(String path) async =>
+      await canWriteToDirectory(path) &&
+      !await StorageAccessService.needsAllFilesAccess(path);
 
   Future<void> _pickScopedFolder() async {
     ScopedFolder? picked;
@@ -138,7 +142,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   Future<void> _requestStorageAccess() async {
     try {
       await StorageAccessService.requestStorageAccess();
-      final writable = await canWriteToDirectory(_dirController.text);
+      final writable = await _directoryUsable(_dirController.text);
       if (mounted) setState(() => _directoryWritable = writable);
     } on PlatformException catch (error) {
       if (!mounted) return;

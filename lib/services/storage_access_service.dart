@@ -11,6 +11,20 @@ class StorageAccessService {
     }
   }
 
+  /// Whether [path] is a shared folder that Android 11+ only fully exposes
+  /// with All files access, which is not held. Writing there can still work,
+  /// so a write probe alone misses this: other apps' notes stay invisible.
+  static Future<bool> needsAllFilesAccess(String path) async {
+    try {
+      return await _channel.invokeMethod<bool>('needsAllFilesAccess', {
+            'path': path,
+          }) ??
+          false;
+    } on MissingPluginException {
+      return false;
+    }
+  }
+
   static Future<void> requestStorageAccess() async {
     try {
       await _channel.invokeMethod<void>('requestStorageAccess');
