@@ -1,0 +1,77 @@
+import 'dart:io';
+
+import 'package:flutter/services.dart';
+
+import 'note_store.dart';
+
+/// Notes inside an Android document tree picked with the system folder
+/// picker. The read/write grant was persisted when the user selected it; the
+/// URI is an opaque provider identifier, never a filesystem path.
+class SafNoteStore implements NoteStore {
+  SafNoteStore(this.treeUri, this.label, {MethodChannel? channel})
+    : _channel =
+          channel ?? const MethodChannel('org.buetow.quicknote/saf-notes') {
+    if (treeUri.isEmpty) throw ArgumentError.value(treeUri, 'treeUri');
+  }
+
+  final String treeUri;
+  @override
+  final String label;
+  final MethodChannel _channel;
+
+  Future<T?> _call<T>(String method, [Map<String, String>? args]) async {
+    try {
+      return await _channel.invokeMethod<T>(method, {
+        'treeUri': treeUri,
+        ...?args,
+      });
+    } on PlatformException catch (e) {
+      final path = args?['path'] ?? args?['to'] ?? '';
+      switch (e.code) {
+        case 'not_found':
+          throw PathNotFoundException(path, OSError(e.message ?? 'Not found'));
+        case 'exists':
+          throw NoteExistsException(path);
+      }
+      rethrow;
+    }
+  }
+
+  @override
+  Future<List<String>> list() async {
+    final paths = await _channel.invokeListMethod<String>('list', {
+      'treeUri': treeUri,
+    });
+    if (paths == null) {
+      throw StateError('The document provider returned no listing.');
+    }
+    return paths.where(isNotePath).toList()..sort();
+  }
+
+  @override
+  Future<String> read(String path) async {
+    final text = await _call<String>('read', {'path': normalizeNotePath(path)});
+    if (text == null) {
+      throw StateError('The document provider returned no note.');
+    }
+    return text;
+  }
+
+  @override
+  Future<void> write(String path, String text) =>
+      _call<void>('write', {'path': normalizeNotePath(path), 'text': text});
+
+  @override
+  Future<void> create(String path, String text) =>
+      _call<void>('create', {'path': normalizeNotePath(path), 'text': text});
+
+  @override
+  Future<void> delete(String path) =>
+      _call<void>('delete', {'path': normalizeNotePath(path)});
+
+  @override
+  Future<void> rename(String from, String to) => _call<void>('rename', {
+    'from': normalizeNotePath(from),
+    'to': normalizeNotePath(to),
+  });
+}

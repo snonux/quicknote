@@ -1,0 +1,1 @@
+First release: file tree, fuzzy finder, raw and WYSIWYG markdown editing of a notes folder.

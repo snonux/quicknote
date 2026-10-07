@@ -1,0 +1,105 @@
+import 'dart:io'
+    show
+        Directory,
+        File,
+        FileSystemEntity,
+        FileSystemEntityType,
+        FileSystemException,
+        Platform;
+import 'dart:math' show Random;
+
+import 'package:path/path.dart' as p;
+import 'package:path_provider/path_provider.dart';
+
+class QuickSwitchDirectory {
+  const QuickSwitchDirectory(this.label, this.path);
+  final String label;
+  final String path;
+}
+
+// One-tap preference shortcuts to common Android storage locations.
+// None of these are the app default; the user picks one explicitly.
+const List<QuickSwitchDirectory> quickSwitchDirectories = [
+  QuickSwitchDirectory('Notes/Vault', '/storage/emulated/0/Notes/Vault'),
+  QuickSwitchDirectory('Notes', '/storage/emulated/0/Notes'),
+  QuickSwitchDirectory('Documents', '/storage/emulated/0/Documents'),
+  QuickSwitchDirectory('Download', '/storage/emulated/0/Download'),
+];
+
+/// The notes folder used until the user picks one: the app-specific external
+/// directory on Android (no permission needed, removed on uninstall), and
+/// `~/Notes` on desktop.
+Future<String> defaultNotesDirectory() async {
+  if (Platform.isAndroid) {
+    final dir = await getExternalStorageDirectory();
+    if (dir != null) return dir.path;
+    return (await getApplicationDocumentsDirectory()).path;
+  }
+  final home = Platform.environment['HOME'];
+  if (home != null && home.isNotEmpty) return p.join(home, 'Notes');
+  return Directory.current.path;
+}
+
+/// Whether Quicknote can actually write notes into [path].
+///
+/// This mirrors what [DirectoryNoteStore.create] does -- create the directory if
+/// it is missing, then write a file into it -- because "can we write here?"
+/// is the only question worth asking the user about.
+///
+/// Asking the MANAGE_EXTERNAL_STORAGE permission instead gives the wrong
+/// answer in both directions. The default app-specific directory needs no
+/// permission at all, so a fresh install would be warned about a folder it can
+/// write to perfectly well. And under GrapheneOS Storage Scopes the app is
+/// deliberately told it has no access while writes to folders it created still
+/// succeed -- a common way to grant a notes vault on GrapheneOS.
+///
+/// Checking normally leaves the filesystem as it found it. Missing directories
+/// are removed if they are still empty after the probe.
+Future<bool> canWriteToDirectory(String path) async {
+  if (path.trim().isEmpty) return false;
+  final dir = Directory(path);
+  final probe = File(
+    p.join(
+      path,
+      '.quicknote-write-probe-${DateTime.now().microsecondsSinceEpoch}'
+      '-${Random.secure().nextInt(1 << 32)}',
+    ),
+  );
+  // These paths are absent before create(). Dart does not report which
+  // directories create(recursive: true) actually made, so another process
+  // creating the same empty path concurrently cannot be distinguished here.
+  final missingDirs = <Directory>[];
+  var probeCreated = false;
+  try {
+    var ancestor = dir;
+    while (await FileSystemEntity.type(ancestor.path) ==
+        FileSystemEntityType.notFound) {
+      missingDirs.add(ancestor);
+      final parent = ancestor.parent;
+      if (parent.path == ancestor.path) break;
+      ancestor = parent;
+    }
+    await dir.create(recursive: true);
+    await probe.create(exclusive: true);
+    probeCreated = true;
+    await probe.writeAsString('');
+    return true;
+  } on FileSystemException {
+    return false;
+  } finally {
+    try {
+      if (probeCreated) await probe.delete();
+    } on FileSystemException {
+      // A failed cleanup does not change whether the write succeeded.
+    }
+    for (final missingDir in missingDirs) {
+      try {
+        // The list runs deepest first. Non-recursive deletion leaves a
+        // directory alone if another writer populated it meanwhile.
+        await missingDir.delete();
+      } on FileSystemException {
+        // A directory now in use stays untouched.
+      }
+    }
+  }
+}
