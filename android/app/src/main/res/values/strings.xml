@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="capture_label">Quick note</string>
+    <string name="capture_title">Add to %1$s</string>
+    <string name="capture_hint">Type a quick note…</string>
+    <string name="capture_add">Add</string>
+    <string name="capture_cancel">Cancel</string>
+    <string name="capture_open">Open app</string>
+    <string name="capture_added">Added to %1$s</string>
+    <string name="capture_failed">Could not add the note: %1$s</string>
+    <plurals name="capture_images">
+        <item quantity="one">%d image will be added</item>
+        <item quantity="other">%d images will be added</item>
+    </plurals>
+    <string name="widget_hint">Quick note to %1$s…</string>
+    <string name="widget_description">Type a quick note into your default note</string>
+</resources>

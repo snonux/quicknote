@@ -7,6 +7,11 @@ const _kScopedTreeUri = 'ScopedTreeUri';
 const _kScopedTreeName = 'ScopedTreeName';
 const _kEditorMode = 'EditorMode';
 const _kDefaultNote = 'DefaultNote';
+const _kPinned = 'PinnedNotes';
+const _kRecent = 'RecentNotes';
+
+/// How many recently opened notes are remembered.
+const kRecentLimit = 20;
 
 /// The note the home button opens unless Preferences names another.
 const kDefaultNotePath = 'Quicknote.md';
@@ -97,5 +102,27 @@ class PreferencesService {
     } else {
       await prefs.setString(_kDefaultNote, path);
     }
+  }
+
+  /// Pinned notes, in the order they were pinned.
+  Future<List<String>> pinned() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_kPinned) ?? const [];
+  }
+
+  Future<void> setPinned(List<String> paths) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kPinned, paths);
+  }
+
+  /// Recently opened notes, most recent first.
+  Future<List<String>> recent() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getStringList(_kRecent) ?? const [];
+  }
+
+  Future<void> setRecent(List<String> paths) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setStringList(_kRecent, paths.take(kRecentLimit).toList());
   }
 }

@@ -22,10 +22,12 @@ code **not bold**
 | a | b |
 Last''';
 
+/// The painted text; an inline image counts as its one placeholder character.
 String plain(InlineSpan span) {
   final b = StringBuffer();
   span.visitChildren((s) {
     if (s is TextSpan && s.text != null) b.write(s.text);
+    if (s is WidgetSpan) b.write('\uFFFC');
     return true;
   });
   return b.toString();
@@ -94,6 +96,64 @@ void main() {
     });
   });
 
+  group('inline images and tags', () {
+    const text = 'Look:\n![a shot](img/x.png)\nand #tag here\n';
+    final withImages = MarkdownStyler(
+      base: const TextStyle(fontSize: 14),
+      scheme: ColorScheme.fromSeed(seedColor: Colors.teal),
+      imageBuilder: (target, alt) =>
+          target.endsWith('.png') ? const SizedBox(key: Key('img')) : null,
+    );
+
+    test('an image off the active line becomes one placeholder', () {
+      final span = withImages.build(
+        text,
+        const TextSelection.collapsed(offset: 0),
+      );
+      final out = plain(span);
+      expect(out.length, text.length);
+      expect(out.split('\n')[1], endsWith('\uFFFC'));
+    });
+
+    test('the active line shows the image source', () {
+      final span = withImages.build(
+        text,
+        const TextSelection.collapsed(offset: 8),
+      );
+      expect(plain(span), text);
+    });
+
+    test('no builder or a refusing builder keeps the label', () {
+      for (final t in [text, 'x\n![a](https://x.y/i.gif)\n']) {
+        expect(
+          plain(styler.build(t, const TextSelection.collapsed(offset: 0))),
+          t,
+        );
+        expect(
+          plain(
+            withImages.build(t, const TextSelection.collapsed(offset: 0)),
+          ).contains('\uFFFC'),
+          t == text,
+        );
+      }
+    });
+
+    test('tags are coloured, other #s are not', () {
+      final span = styler.build(
+        'a #tag b\n# Heading\n',
+        const TextSelection.collapsed(offset: -1),
+      );
+      final tagged = <String>[];
+      span.visitChildren((s) {
+        if (s is TextSpan && s.style?.color == styler.scheme.tertiary) {
+          tagged.add(s.text!);
+        }
+        return true;
+      });
+      expect(tagged, ['#tag']);
+    });
+  });
+
   group('MarkdownEditingController', () {
     MarkdownEditingController at(String text, int start, [int? end]) =>
         MarkdownEditingController(text: text)
@@ -154,6 +214,23 @@ void main() {
       final c = at('see docs', 4, 8)..insertLink();
       expect(c.text, 'see [docs](https://)');
       expect(c.selection.textInside(c.text), 'https://');
+    });
+  });
+
+  group('insertBlock', () {
+    String insert(String text, int at) {
+      final c = MarkdownEditingController(text: text)
+        ..selection = TextSelection.collapsed(offset: at);
+      c.insertBlock('![](i.png)');
+      return '${c.text.substring(0, c.selection.start)}|'
+          '${c.text.substring(c.selection.start)}';
+    }
+
+    test('sets the block off with blank lines', () {
+      expect(insert('', 0), '![](i.png)\n\n|');
+      expect(insert('- item\n', 7), '- item\n\n![](i.png)\n\n|');
+      expect(insert('one two', 3), 'one\n\n![](i.png)\n\n| two');
+      expect(insert('a\n\nb', 2), 'a\n\n![](i.png)\n|\nb');
     });
   });
 

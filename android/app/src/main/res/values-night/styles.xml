@@ -15,4 +15,9 @@
     <style name="NormalTheme" parent="@android:style/Theme.Black.NoTitleBar">
         <item name="android:windowBackground">?android:colorBackground</item>
     </style>
+    <!-- The quick-note dialog over the home screen or another app. -->
+    <style name="CaptureTheme" parent="@android:style/Theme.Material.Dialog.NoActionBar">
+        <item name="android:colorAccent">#00796B</item>
+        <item name="android:windowCloseOnTouchOutside">true</item>
+    </style>
 </resources>

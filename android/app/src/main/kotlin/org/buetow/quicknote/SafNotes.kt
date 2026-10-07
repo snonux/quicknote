@@ -120,9 +120,35 @@ internal class SafNotes(private val resolver: ContentResolver) {
     }
 
     fun create(raw: String, path: String, text: String) {
+        if (!isNote(path)) throw IllegalArgumentException("Notes must end in .md or .markdown.")
+        createDocument(raw, path) { writeDoc(it, text) }
+    }
+
+    /** Reads an image next to the notes (pasted or shared into a note). */
+    fun readBytes(raw: String, path: String): ByteArray {
+        if (!isImage(path)) throw IllegalArgumentException("Not an image: $path")
+        val tree = tree(raw, write = false)
+        val input = resolver.openInputStream(uri(tree, requireNote(tree, path)))
+            ?: throw IOException("Cannot read $path.")
+        return input.use { it.readBytes() }
+    }
+
+    /** Stores a new image next to the notes; never overwrites. */
+    fun createBytes(raw: String, path: String, bytes: ByteArray) {
+        if (!isImage(path)) throw IllegalArgumentException("Not an image: $path")
+        createDocument(raw, path) { uri ->
+            val output = resolver.openOutputStream(uri, "wt") ?: throw IOException("Cannot write $path.")
+            output.use { it.write(bytes) }
+        }
+    }
+
+    /**
+     * Creates the document at [path] (and any missing folders) and fills it
+     * with [fill]. Throws [NoteExistsException] rather than overwrite.
+     */
+    private fun createDocument(raw: String, path: String, fill: (Uri) -> Unit) {
         val tree = tree(raw, write = true)
         val parts = segments(path)
-        if (!isNote(parts.last())) throw IllegalArgumentException("Notes must end in .md or .markdown.")
         var parent = Doc(rootId(tree), "", true)
         for (segment in parts.dropLast(1)) {
             val existing = children(tree, parent.id).firstOrNull { it.name == segment }
@@ -140,14 +166,14 @@ internal class SafNotes(private val resolver: ContentResolver) {
         val name = parts.last()
         if (children(tree, parent.id).any { it.name == name }) throw NoteExistsException("$path already exists.")
         // octet-stream so the provider keeps the name verbatim instead of
-        // appending an extension it derives from a markdown MIME type.
+        // appending an extension it derives from the MIME type.
         val created = DocumentsContract.createDocument(
             resolver, uri(tree, parent), "application/octet-stream", name,
         ) ?: throw IOException("Cannot create $path.")
         try {
             val actual = displayName(created)
-            if (actual != name) throw IOException("The folder's provider named the note $actual instead of $name.")
-            writeDoc(created, text)
+            if (actual != name) throw IOException("The folder's provider named the file $actual instead of $name.")
+            fill(created)
         } catch (e: Exception) {
             try {
                 DocumentsContract.deleteDocument(resolver, created)
@@ -181,6 +207,11 @@ internal class SafNotes(private val resolver: ContentResolver) {
             if (it.moveToFirst()) return it.getString(0) ?: ""
         }
         throw IOException("The document provider returned no file name.")
+    }
+
+    private fun isImage(name: String): Boolean {
+        val lower = name.lowercase()
+        return listOf(".png", ".jpg", ".jpeg", ".gif", ".webp").any { lower.endsWith(it) }
     }
 
     private fun isNote(name: String): Boolean {

@@ -55,6 +55,67 @@ Future<bool> confirmDeleteNote(BuildContext context, String path) async {
   return answer ?? false;
 }
 
+/// How a note is handed to another app.
+enum ShareFormat { text, pdf, image }
+
+/// Asks how to share [path]; null when cancelled. [desktop] words the
+/// choices for a desktop without a share sheet.
+Future<ShareFormat?> askShareFormat(
+  BuildContext context,
+  String path, {
+  required bool desktop,
+}) {
+  Widget option(
+    BuildContext ctx,
+    ShareFormat format,
+    IconData icon,
+    String title,
+    String subtitle,
+  ) => ListTile(
+    key: ValueKey('share:${format.name}'),
+    leading: Icon(icon),
+    title: Text(title),
+    subtitle: Text(subtitle),
+    onTap: () => Navigator.of(ctx).pop(format),
+  );
+
+  return showDialog<ShareFormat>(
+    context: context,
+    builder: (ctx) => SimpleDialog(
+      title: Text('Share $path'),
+      children: [
+        option(
+          ctx,
+          ShareFormat.text,
+          Icons.notes,
+          'As text',
+          desktop
+              ? 'Copy the markdown to the clipboard'
+              : 'The markdown, as plain text',
+        ),
+        option(
+          ctx,
+          ShareFormat.pdf,
+          Icons.picture_as_pdf_outlined,
+          'As PDF',
+          desktop
+              ? 'Save formatted A4 pages to Downloads'
+              : 'Formatted A4 pages, with images',
+        ),
+        option(
+          ctx,
+          ShareFormat.image,
+          Icons.image_outlined,
+          'As image',
+          desktop
+              ? 'Save the formatted note as a PNG to Downloads'
+              : 'The formatted note as one PNG',
+        ),
+      ],
+    ),
+  );
+}
+
 class _PathDialog extends StatefulWidget {
   const _PathDialog({
     required this.title,

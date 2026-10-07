@@ -1,5 +1,6 @@
 import 'dart:io';
 import 'dart:math' show Random;
+import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
 
@@ -14,8 +15,9 @@ class DirectoryNoteStore implements NoteStore {
   @override
   String get label => root;
 
-  File _file(String path) {
-    final normalized = normalizeNotePath(path);
+  File _file(String path) => _inside(path, normalizeNotePath(path));
+
+  File _inside(String path, String normalized) {
     final full = p.normalize(p.join(root, p.joinAll(normalized.split('/'))));
     if (!p.isWithin(p.normalize(root), full)) {
       throw InvalidNotePathException('$path is outside the notes folder.');
@@ -87,6 +89,23 @@ class DirectoryNoteStore implements NoteStore {
     if (await target.exists()) throw NoteExistsException(normalizeNotePath(to));
     await target.parent.create(recursive: true);
     await source.rename(target.path);
+  }
+
+  @override
+  Future<Uint8List> readBytes(String path) async =>
+      _inside(path, normalizeAttachmentPath(path)).readAsBytes();
+
+  @override
+  Future<void> createBytes(String path, Uint8List bytes) async {
+    final normalized = normalizeAttachmentPath(path);
+    final file = _inside(path, normalized);
+    await file.parent.create(recursive: true);
+    try {
+      await file.create(exclusive: true);
+    } on PathExistsException {
+      throw NoteExistsException(normalized);
+    }
+    await file.writeAsBytes(bytes, flush: true);
   }
 
   /// Write a sibling temp file, then rename it over the note, so a crash or

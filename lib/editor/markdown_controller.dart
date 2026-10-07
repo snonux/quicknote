@@ -18,6 +18,14 @@ class MarkdownEditingController extends TextEditingController {
     notifyListeners();
   }
 
+  /// Paints `![alt](target)` as the image in WYSIWYG mode; see
+  /// [MarkdownStyler.imageBuilder].
+  InlineImageBuilder? imageBuilder;
+
+  /// Repaints the text, e.g. once an inline image has loaded and its
+  /// placeholder needs its real size.
+  void relayout() => notifyListeners();
+
   bool _wysiwyg = false;
   bool get wysiwyg => _wysiwyg;
   set wysiwyg(bool value) {
@@ -42,6 +50,7 @@ class MarkdownEditingController extends TextEditingController {
     final styler = MarkdownStyler(
       base: style ?? DefaultTextStyle.of(context).style,
       scheme: Theme.of(context).colorScheme,
+      imageBuilder: imageBuilder,
     );
     return styler.build(
       text,
@@ -179,6 +188,31 @@ class MarkdownEditingController extends TextEditingController {
       text: text.replaceRange(at, at + 1, next),
       selection: selection,
     );
+  }
+
+  /// Replaces the selection with [text] and puts the caret after it.
+  void replaceSelection(String text) {
+    final sel = _safeSelection;
+    value = TextEditingValue(
+      text: this.text.replaceRange(sel.start, sel.end, text),
+      selection: TextSelection.collapsed(offset: sel.start + text.length),
+    );
+  }
+
+  /// Inserts [markdown] (an image, say) as a paragraph of its own at the
+  /// caret, with blank lines around it so it does not join a list item or
+  /// paragraph next to it. The caret ends up on a fresh line after it.
+  void insertBlock(String markdown) {
+    final sel = _safeSelection;
+    final before = text.substring(0, sel.start);
+    final after = text.substring(sel.end);
+    final lead = before.isEmpty || before.endsWith('\n\n')
+        ? ''
+        : before.endsWith('\n')
+        ? '\n'
+        : '\n\n';
+    final trail = after.startsWith('\n') ? '\n' : '\n\n';
+    replaceSelection('$lead$markdown$trail');
   }
 
   /// Wraps the selection as a link and selects the URL placeholder.
