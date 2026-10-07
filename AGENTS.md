@@ -88,7 +88,7 @@ F-Droid's scanner rejects the Google Play dependency-metadata signing block.
 F-Droid: build from `/tmp/build` against an SDK at `/opt/android-sdk`
 (`flutter config --android-sdk`), as `.github/workflows/release.yml` does.
 
-**Pushing a `vX.Y.Z` tag** runs `.github/workflows/release.yml` (for now in `docs/workflows/`; see the README there), which builds
+**Pushing a `vX.Y.Z` tag** runs `.github/workflows/release.yml`, which builds
 the signed per-ABI APKs and attaches them to the GitHub release. It needs the
 secrets `ANDROID_KEYSTORE` (base64 of the keystore), `ANDROID_KEY_ALIAS`,
 `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`;

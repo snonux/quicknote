@@ -12,8 +12,6 @@
 # 3. Sets the GitHub secrets the release workflow signs with
 #    (ANDROID_KEYSTORE, ANDROID_KEY_ALIAS, ANDROID_KEYSTORE_PASSWORD,
 #    ANDROID_KEY_PASSWORD), using the gh CLI.
-# 4. Moves the workflows from docs/workflows/ to .github/workflows/ on main,
-#    commits and pushes, if that has not happened yet.
 #
 # Needs keytool (any JDK), openssl, git and gh (logged in, `gh auth login`).
 set -euo pipefail
@@ -69,27 +67,6 @@ gh secret set ANDROID_KEY_ALIAS -R "$repo" --body "$(prop keyAlias)"
 gh secret set ANDROID_KEYSTORE_PASSWORD -R "$repo" --body "$(prop storePassword)"
 gh secret set ANDROID_KEY_PASSWORD -R "$repo" --body "$(prop keyPassword)"
 echo "Set the four signing secrets on $repo."
-
-# 4: workflows into place.
-git fetch -q origin main
-if git cat-file -e origin/main:.github/workflows/release.yml 2>/dev/null; then
-  echo "Workflows already in .github/workflows on main."
-else
-  # In a temporary worktree, so this works from any branch and leaves the
-  # current checkout alone.
-  tmp=$(mktemp -d)
-  trap 'git worktree remove --force "$tmp" 2>/dev/null; rm -rf "$tmp"' EXIT
-  git worktree add -q "$tmp" origin/main
-  (
-    cd "$tmp"
-    mkdir -p .github/workflows
-    git mv docs/workflows/ci.yml docs/workflows/release.yml .github/workflows/
-    git rm -q docs/workflows/README.md
-    git commit -q -m "Move CI and release workflows into .github/workflows"
-    git push -q origin HEAD:main
-  )
-  echo "Moved the workflows to .github/workflows and pushed main."
-fi
 
 echo
 echo "Done. Optional: gh secret set FDROID_DISPATCH_TOKEN -R $repo"

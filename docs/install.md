@@ -42,8 +42,7 @@ flutter test
 ```
 
 The CI workflow runs these checks and builds the Android and Linux release
-targets on every push and pull request. It is in `docs/workflows/` for now and
-only runs once moved to `.github/workflows/`; see the README there.
+targets on every push and pull request.
 
 ## Releases
 
@@ -56,8 +55,7 @@ traps, are in [AGENTS.md](../AGENTS.md).
 
 One-time setup for signed releases: `tool/setup_release.sh` creates the
 release keystore (`keys/turbonotes-release.jks`, git-ignored; back it up) with a
-random password, writes `android/key.properties`, sets the four `ANDROID_*`
-signing secrets with `gh`, and moves the workflows into `.github/workflows/`.
-It is safe to run again.
+random password, writes `android/key.properties` and sets the four
+`ANDROID_*` signing secrets with `gh`. It is safe to run again.
 
 The logo is drawn by `tool/draw_logo.py`.
