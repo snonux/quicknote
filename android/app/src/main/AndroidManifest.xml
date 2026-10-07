@@ -1,5 +1,5 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android">
-    <!-- No INTERNET permission: Quicknote never talks to the network. -->
+    <!-- No INTERNET permission: TurboNotes never talks to the network. -->
     <!-- Needed to read/write a typed notes folder outside the app sandbox
          (e.g. a synced notes vault) on Android 11+. The Android folder picker
          and the app-specific default directory need no permission. -->
@@ -8,7 +8,7 @@
     <uses-permission android:name="android.permission.READ_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <uses-permission android:name="android.permission.WRITE_EXTERNAL_STORAGE" android:maxSdkVersion="29"/>
     <application
-        android:label="Quicknote"
+        android:label="TurboNotes"
         android:name="${applicationName}"
         android:requestLegacyExternalStorage="true"
         android:icon="@mipmap/ic_launcher">
@@ -30,6 +30,50 @@
                 <category android:name="android.intent.category.LAUNCHER"/>
             </intent-filter>
         </activity>
+        <!-- The quick-note dialog: opened by the home-screen widget, and
+             the share target for text and images from other apps. -->
+        <activity
+            android:name=".CaptureActivity"
+            android:exported="true"
+            android:label="@string/capture_label"
+            android:icon="@mipmap/ic_launcher"
+            android:theme="@style/CaptureTheme"
+            android:taskAffinity="org.buetow.turbonotes.capture"
+            android:excludeFromRecents="true"
+            android:windowSoftInputMode="stateVisible|adjustResize">
+            <intent-filter>
+                <action android:name="org.buetow.turbonotes.CAPTURE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="text/plain"/>
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.SEND"/>
+                <action android:name="android.intent.action.SEND_MULTIPLE"/>
+                <category android:name="android.intent.category.DEFAULT"/>
+                <data android:mimeType="image/*"/>
+            </intent-filter>
+        </activity>
+        <receiver
+            android:name=".CaptureWidget"
+            android:label="@string/capture_label"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.appwidget.action.APPWIDGET_UPDATE"/>
+            </intent-filter>
+            <meta-data
+                android:name="android.appwidget.provider"
+                android:resource="@xml/capture_widget_info"/>
+        </receiver>
+        <!-- Hands a note shared as PDF or image to the app the user picks. -->
+        <provider
+            android:name=".ShareProvider"
+            android:authorities="org.buetow.turbonotes.share"
+            android:exported="false"
+            android:grantUriPermissions="true"/>
         <meta-data
             android:name="flutterEmbedding"
             android:value="2" />

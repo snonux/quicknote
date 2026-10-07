@@ -1,5 +1,11 @@
 import 'package:flutter/material.dart';
 
+import '../services/tags.dart';
+
+/// Builds the widget shown in place of `![alt](target)`, or returns null to
+/// keep the image as a text label (remote URLs, say).
+typedef InlineImageBuilder = Widget? Function(String target, String alt);
+
 /// Styles markdown source as it would render, for the WYSIWYG editor.
 ///
 /// The editor never converts the note to another format: the text in the
@@ -13,11 +19,15 @@ import 'package:flutter/material.dart';
 /// Every character of the source is emitted exactly once, in order. A few are
 /// painted as a different single character (`-` as `•`, `[ ]` as `☐`), which
 /// keeps the caret and selection mapping one-to-one with the controller text.
+/// An image off the active line is painted as the image itself: its source
+/// characters are hidden and the closing `)` becomes the image placeholder,
+/// so the count still adds up.
 class MarkdownStyler {
-  MarkdownStyler({required this.base, required this.scheme});
+  MarkdownStyler({required this.base, required this.scheme, this.imageBuilder});
 
   final TextStyle base;
   final ColorScheme scheme;
+  final InlineImageBuilder? imageBuilder;
 
   static const _headingScale = [1.75, 1.5, 1.3, 1.15, 1.05, 1.0];
 
@@ -336,6 +346,8 @@ class MarkdownStyler {
     RegExp(r'(?<![\w_])_(?=[^\s_])(.+?)(?<=[^\s_])_(?![\w_])'),
     // 6: bare URL
     RegExp(r'https?://[^\s<>()\[\]]+[^\s<>()\[\].,;:!?]'),
+    // 7: #tag
+    kTagPattern,
   ];
 
   /// Inline markup inside one line: the earliest match wins, its content is
@@ -401,6 +413,25 @@ class MarkdownStyler {
       case 1:
         final bang = m.group(1)!;
         final label = m.group(2)!;
+        final image = bang.isNotEmpty && !active
+            ? imageBuilder?.call(m.group(3)!, label)
+            : null;
+        if (image != null) {
+          out.add(
+            TextSpan(
+              text: whole.substring(0, whole.length - 1),
+              style: _hidden,
+            ),
+          );
+          out.add(
+            WidgetSpan(
+              alignment: PlaceholderAlignment.bottom,
+              style: style,
+              child: image,
+            ),
+          );
+          return;
+        }
         final link = style.copyWith(
           color: scheme.primary,
           decoration: TextDecoration.underline,
@@ -442,6 +473,20 @@ class MarkdownStyler {
         out.add(TextSpan(text: d, style: _marker(active, italic)));
         _inline(m.group(1)!, italic, active, out);
         out.add(TextSpan(text: d, style: _marker(active, italic)));
+      case 7:
+        if (tagOf(m) == null) {
+          out.add(TextSpan(text: whole, style: style));
+          return;
+        }
+        out.add(
+          TextSpan(
+            text: whole,
+            style: style.copyWith(
+              color: scheme.tertiary,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        );
       case 6:
         out.add(
           TextSpan(

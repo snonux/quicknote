@@ -1,5 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/fuzzy.dart';
+import 'package:turbonotes/services/fuzzy.dart';
 
 void main() {
   const paths = [

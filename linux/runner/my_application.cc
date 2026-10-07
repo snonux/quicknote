@@ -5,6 +5,7 @@
 #include <gdk/gdkx.h>
 #endif
 
+#include "clipboard_channel.h"
 #include "flutter/generated_plugin_registrant.h"
 
 struct _MyApplication {
@@ -45,11 +46,11 @@ static void my_application_activate(GApplication* application) {
   if (use_header_bar) {
     GtkHeaderBar* header_bar = GTK_HEADER_BAR(gtk_header_bar_new());
     gtk_widget_show(GTK_WIDGET(header_bar));
-    gtk_header_bar_set_title(header_bar, "Quicknote");
+    gtk_header_bar_set_title(header_bar, "TurboNotes");
     gtk_header_bar_set_show_close_button(header_bar, TRUE);
     gtk_window_set_titlebar(window, GTK_WIDGET(header_bar));
   } else {
-    gtk_window_set_title(window, "Quicknote");
+    gtk_window_set_title(window, "TurboNotes");
   }
 
   gtk_window_set_default_size(window, 1100, 720);
@@ -74,6 +75,7 @@ static void my_application_activate(GApplication* application) {
   gtk_widget_realize(GTK_WIDGET(view));
 
   fl_register_plugins(FL_PLUGIN_REGISTRY(view));
+  clipboard_channel_register(view);
 
   gtk_widget_grab_focus(GTK_WIDGET(view));
 }

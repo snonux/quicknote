@@ -4,11 +4,13 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../editor/markdown_controller.dart';
+import '../services/clipboard_image.dart';
 import '../services/note_store.dart';
 import '../services/note_tree.dart';
 import '../services/preferences.dart';
 import 'feedback.dart';
 import 'format_toolbar.dart';
+import 'note_image.dart';
 
 enum _Conflict { cancel, reload, overwrite }
 
@@ -32,7 +34,9 @@ class NoteEditor extends StatefulWidget {
     required this.initialMode,
     this.onModeChanged,
     this.onDirtyChanged,
+    this.onSaved,
     this.autofocus = false,
+    this.initialSelection,
   });
 
   final NoteStore store;
@@ -40,6 +44,13 @@ class NoteEditor extends StatefulWidget {
   final EditorMode initialMode;
   final ValueChanged<EditorMode>? onModeChanged;
   final ValueChanged<bool>? onDirtyChanged;
+
+  /// Called with the note's text whenever it was written to (or reloaded
+  /// from) disk, e.g. to keep the search index current.
+  final void Function(String path, String text)? onSaved;
+
+  /// What to select once loaded (a search match), focusing the field.
+  final TextSelection? initialSelection;
 
   /// Focus the field with the caret at the end once loaded, e.g. for a note
   /// that was just created.
@@ -54,6 +65,10 @@ class NoteEditorState extends State<NoteEditor> {
   final FocusNode _focus = FocusNode();
   final ScrollController _scroll = ScrollController();
   late EditorMode _mode = widget.initialMode;
+  late AttachmentCache _images = _newCache();
+
+  AttachmentCache _newCache() =>
+      AttachmentCache(widget.store, onLoaded: _controller.relayout);
 
   /// The text on disk as last loaded or saved; "dirty" means the field
   /// differs from it.
@@ -70,11 +85,15 @@ class NoteEditorState extends State<NoteEditor> {
     onInactive: _saveInBackground,
     onHide: _saveInBackground,
     onPause: _saveInBackground,
+    onResume: _refreshFromDisk,
     onExitRequested: () async {
       await _saveInBackground();
       return AppExitResponse.exit;
     },
   );
+
+  /// The text in the field, unsaved edits included.
+  String get text => _controller.text;
 
   bool get dirty =>
       !_loading && _loadError == null && _controller.text != _original;
@@ -83,6 +102,7 @@ class NoteEditorState extends State<NoteEditor> {
   void initState() {
     super.initState();
     _controller.wysiwyg = _mode == EditorMode.wysiwyg;
+    _controller.imageBuilder = _inlineImage;
     _controller.addListener(_onChanged);
     _focus.addListener(_onFocus);
     _lifecycle; // Created lazily; touch it so it starts listening.
@@ -92,6 +112,10 @@ class NoteEditorState extends State<NoteEditor> {
   @override
   void didUpdateWidget(NoteEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.store != widget.store) {
+      _images.dispose();
+      _images = _newCache();
+    }
     if (oldWidget.path != widget.path || oldWidget.store != widget.store) {
       setState(() {
         _loading = true;
@@ -104,6 +128,7 @@ class NoteEditorState extends State<NoteEditor> {
   @override
   void dispose() {
     _lifecycle.dispose();
+    _images.dispose();
     _controller.removeListener(_onChanged);
     _controller.dispose();
     _focus.removeListener(_onFocus);
@@ -131,11 +156,16 @@ class NoteEditorState extends State<NoteEditor> {
       _original = text;
       _controller.value = TextEditingValue(
         text: text,
-        selection: TextSelection.collapsed(
-          offset: widget.autofocus ? text.length : 0,
+        selection: _clamp(
+          widget.initialSelection ??
+              TextSelection.collapsed(
+                offset: widget.autofocus ? text.length : 0,
+              ),
+          text.length,
         ),
       );
       _loadError = null;
+      widget.onSaved?.call(path, text);
     } catch (e) {
       // Show the reason instead of an empty editor: saving an empty buffer
       // over a note that merely could not be read would destroy it.
@@ -144,7 +174,8 @@ class NoteEditorState extends State<NoteEditor> {
     }
     setState(() => _loading = false);
     _onChanged();
-    if (widget.autofocus && _loadError == null) {
+    if ((widget.autofocus || widget.initialSelection != null) &&
+        _loadError == null) {
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (mounted) _focus.requestFocus();
       });
@@ -158,6 +189,93 @@ class NoteEditorState extends State<NoteEditor> {
       offset: _controller.text.length,
     );
     _focus.requestFocus();
+  }
+
+  /// Selects [selection] (a search match) and focuses the field.
+  void select(TextSelection selection) {
+    if (_loading || _loadError != null) return;
+    _controller.selection = _clamp(selection, _controller.text.length);
+    _focus.requestFocus();
+  }
+
+  static TextSelection _clamp(TextSelection s, int length) => TextSelection(
+    baseOffset: s.baseOffset.clamp(0, length),
+    extentOffset: s.extentOffset.clamp(0, length),
+  );
+
+  /// Shows edits made outside the app (the home-screen widget, Syncthing)
+  /// when it comes back, as long as nothing typed here would be lost.
+  Future<void> _refreshFromDisk() async {
+    if (_saving || _loading || _loadError != null || dirty) return;
+    final path = widget.path;
+    final String onDisk;
+    try {
+      onDisk = await widget.store.read(path);
+    } catch (_) {
+      return; // Gone or unreadable: the next save reports it.
+    }
+    if (!mounted || path != widget.path || dirty || onDisk == _original) {
+      return;
+    }
+    _original = onDisk;
+    _controller.value = TextEditingValue(
+      text: onDisk,
+      selection: TextSelection.collapsed(
+        offset: _controller.selection.baseOffset.clamp(0, onDisk.length),
+      ),
+    );
+    widget.onSaved?.call(path, onDisk);
+  }
+
+  Widget? _inlineImage(String target, String alt) {
+    final path = resolveNoteLink(widget.path, target);
+    if (path == null || !isImagePath(path)) return null;
+    return NoteImage(cache: _images, path: path, alt: alt);
+  }
+
+  /// Pastes text as usual; with no text but an image on the clipboard, the
+  /// image is stored next to the note and linked at the caret.
+  Future<void> paste() async {
+    final data = await Clipboard.getData(Clipboard.kTextPlain);
+    final text = data?.text;
+    if (text != null && text.isNotEmpty) {
+      _controller.replaceSelection(text);
+      return;
+    }
+    await pasteImage();
+  }
+
+  /// Inserts the clipboard's image, or says there is none.
+  Future<void> pasteImage() async {
+    final image = await readClipboardImage();
+    if (image == null) {
+      _snack('The clipboard holds no image.');
+      return;
+    }
+    await insertImage(image.bytes, image.extension);
+  }
+
+  /// Stores [bytes] as an image next to the note and links it at the caret.
+  Future<void> insertImage(Uint8List bytes, String extension) async {
+    if (_loading || _loadError != null) return;
+    final target = attachmentPathFor(widget.path, extension, DateTime.now());
+    try {
+      await widget.store.createBytes(target.path, bytes);
+    } catch (e) {
+      _snack('Could not store the image: ${describeError(e)}', error: true);
+      return;
+    }
+    await _images.put(target.path, bytes).catchError((_) {});
+    if (!mounted) return;
+    _controller.insertBlock('![](${target.link})');
+    _focus.requestFocus();
+  }
+
+  void _onContentInserted(KeyboardInsertedContent content) {
+    final bytes = content.data;
+    final ext = imageExtensionFor(content.mimeType);
+    if (bytes == null || ext == null) return;
+    insertImage(bytes, ext);
   }
 
   void setMode(EditorMode mode) {
@@ -188,6 +306,7 @@ class NoteEditorState extends State<NoteEditor> {
           setState(() => _saving = false);
           if (choice == _Conflict.reload) {
             _original = onDisk;
+            widget.onSaved?.call(widget.path, onDisk);
             _controller.value = TextEditingValue(
               text: onDisk,
               selection: TextSelection.collapsed(
@@ -211,6 +330,7 @@ class NoteEditorState extends State<NoteEditor> {
       }
       return false;
     }
+    widget.onSaved?.call(widget.path, text);
     if (!mounted) return true;
     _original = text;
     setState(() => _saving = false);
@@ -232,6 +352,7 @@ class NoteEditorState extends State<NoteEditor> {
       if (onDisk == _original || onDisk == text) {
         await widget.store.write(path, text);
         if (path == widget.path) _original = text;
+        widget.onSaved?.call(path, text);
       } else if (_conflictCopyOf != text) {
         final copy = conflictCopyPath(path, DateTime.now());
         await widget.store.create(copy, text);
@@ -271,7 +392,7 @@ class NoteEditorState extends State<NoteEditor> {
       builder: (ctx) => AlertDialog(
         title: const Text('Changed on disk'),
         content: Text(
-          '${widget.path} was changed outside Quicknote since you opened it. '
+          '${widget.path} was changed outside TurboNotes since you opened it. '
           'Overwrite replaces those changes with yours; Reload discards '
           'your edits and shows the version on disk.',
         ),
@@ -300,6 +421,7 @@ class NoteEditorState extends State<NoteEditor> {
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
+    const SingleActivator(LogicalKeyboardKey.keyV, control: true): paste,
     const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
         _controller.toggleWrap('**'),
     const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
@@ -336,7 +458,12 @@ class NoteEditorState extends State<NoteEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _header(theme),
-          if (wysiwyg) FormatToolbar(controller: _controller, focus: _focus),
+          if (wysiwyg)
+            FormatToolbar(
+              controller: _controller,
+              focus: _focus,
+              onPasteImage: pasteImage,
+            ),
           const Divider(height: 1),
           Expanded(
             child: TextField(
@@ -350,7 +477,19 @@ class NoteEditorState extends State<NoteEditor> {
               keyboardType: TextInputType.multiline,
               textAlignVertical: TextAlignVertical.top,
               style: base,
+              // The default strut locks every line to the body text height;
+              // WYSIWYG lines grow for headings and inline images.
+              strutStyle: wysiwyg ? StrutStyle.disabled : null,
               inputFormatters: [if (wysiwyg) ListContinuationFormatter()],
+              contentInsertionConfiguration: ContentInsertionConfiguration(
+                allowedMimeTypes: const [
+                  'image/png',
+                  'image/jpeg',
+                  'image/gif',
+                  'image/webp',
+                ],
+                onContentInserted: _onContentInserted,
+              ),
               decoration: const InputDecoration(
                 border: InputBorder.none,
                 contentPadding: EdgeInsets.fromLTRB(16, 18, 16, 48),

@@ -1,9 +1,10 @@
 import 'dart:io';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/directory_note_store.dart';
-import 'package:quicknote/services/note_store.dart';
-import 'package:quicknote/services/note_tree.dart';
+import 'package:turbonotes/services/directory_note_store.dart';
+import 'package:turbonotes/services/note_store.dart';
+import 'package:turbonotes/services/note_tree.dart';
 
 void main() {
   group('normalizeNotePath', () {
@@ -96,6 +97,57 @@ void main() {
     test('paths cannot escape the folder', () {
       expect(store.read('../x.md'), throwsA(isA<InvalidNotePathException>()));
     });
+
+    test('images are stored next to the notes, never overwritten', () async {
+      final bytes = Uint8List.fromList([1, 2, 3]);
+      await store.createBytes('b/attachments/x.png', bytes);
+      expect(await store.readBytes('b/attachments/x.png'), bytes);
+      expect(
+        store.createBytes('b/attachments/x.png', Uint8List(1)),
+        throwsA(isA<NoteExistsException>()),
+      );
+      // Images are not notes.
+      expect(await store.list(), ['a.md', 'b/c/d.markdown']);
+      expect(
+        store.createBytes('evil.md', bytes),
+        throwsA(isA<InvalidNotePathException>()),
+      );
+      expect(
+        store.readBytes('../x.png'),
+        throwsA(isA<InvalidNotePathException>()),
+      );
+    });
+  });
+
+  group('resolveNoteLink', () {
+    test('resolves relative to the note, decoding %20', () {
+      expect(
+        resolveNoteLink('a/b/n.md', 'attachments/x%20y.png'),
+        'a/b/attachments/x y.png',
+      );
+      expect(resolveNoteLink('n.md', './img.png'), 'img.png');
+      expect(resolveNoteLink('a/n.md', '../img.png'), 'img.png');
+      expect(resolveNoteLink('a/n.md', '<my img.png>'), 'a/my img.png');
+      expect(resolveNoteLink('a/n.md', 'i.png "Title"'), 'a/i.png');
+    });
+
+    test('rejects URLs, absolute paths and escapes', () {
+      for (final t in ['https://x.y/i.png', '/etc/i.png', '../../i.png', '']) {
+        expect(resolveNoteLink('a/n.md', t), isNull, reason: t);
+      }
+    });
+  });
+
+  test('attachment paths sit in the note folder, named after the note', () {
+    final at = DateTime(2026, 10, 7, 18, 2, 15);
+    expect(attachmentPathFor('a/to do.md', '.png', at), (
+      path: 'a/attachments/to-do-20261007-180215.png',
+      link: 'attachments/to-do-20261007-180215.png',
+    ));
+    expect(
+      attachmentPathFor('n.md', 'jpg', at).path,
+      'attachments/n-20261007-180215.jpg',
+    );
   });
 
   group('NoteFolder', () {

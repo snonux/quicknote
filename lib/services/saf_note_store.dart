@@ -10,7 +10,7 @@ import 'note_store.dart';
 class SafNoteStore implements NoteStore {
   SafNoteStore(this.treeUri, this.label, {MethodChannel? channel})
     : _channel =
-          channel ?? const MethodChannel('org.buetow.quicknote/saf-notes') {
+          channel ?? const MethodChannel('org.buetow.turbonotes/saf-notes') {
     if (treeUri.isEmpty) throw ArgumentError.value(treeUri, 'treeUri');
   }
 
@@ -19,14 +19,14 @@ class SafNoteStore implements NoteStore {
   final String label;
   final MethodChannel _channel;
 
-  Future<T?> _call<T>(String method, [Map<String, String>? args]) async {
+  Future<T?> _call<T>(String method, [Map<String, Object>? args]) async {
     try {
       return await _channel.invokeMethod<T>(method, {
         'treeUri': treeUri,
         ...?args,
       });
     } on PlatformException catch (e) {
-      final path = args?['path'] ?? args?['to'] ?? '';
+      final path = (args?['path'] ?? args?['to'] ?? '') as String;
       switch (e.code) {
         case 'not_found':
           throw PathNotFoundException(path, OSError(e.message ?? 'Not found'));
@@ -72,4 +72,21 @@ class SafNoteStore implements NoteStore {
     'from': normalizeNotePath(from),
     'to': normalizeNotePath(to),
   });
+
+  @override
+  Future<Uint8List> readBytes(String path) async {
+    final bytes = await _call<Uint8List>('readBytes', {
+      'path': normalizeAttachmentPath(path),
+    });
+    if (bytes == null) {
+      throw StateError('The document provider returned no file.');
+    }
+    return bytes;
+  }
+
+  @override
+  Future<void> createBytes(String path, Uint8List bytes) => _call<void>(
+    'createBytes',
+    {'path': normalizeAttachmentPath(path), 'bytes': bytes},
+  );
 }

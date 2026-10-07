@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
 class StorageAccessService {
-  static const _channel = MethodChannel('org.buetow.quicknote/storage');
+  static const _channel = MethodChannel('org.buetow.turbonotes/storage');
 
   static Future<int?> storageApiLevel() async {
     try {
@@ -36,14 +36,14 @@ class StorageAccessService {
 
 String storageAccessWarning(int? androidApiLevel) {
   if (androidApiLevel != null && androidApiLevel < 30) {
-    return 'Quicknote needs Storage permission for this folder on Android 7–10. '
+    return 'TurboNotes needs Storage permission for this folder on Android 7–10. '
         'Tap to request it. If no dialog appears, enable Storage in '
-        'Settings → Apps → Quicknote → Permissions. Check the folder path if '
+        'Settings → Apps → TurboNotes → Permissions. Check the folder path if '
         'access still fails.';
   }
   if (androidApiLevel != null) {
-    return 'Quicknote needs All files access for this folder on Android 11+. '
+    return 'TurboNotes needs All files access for this folder on Android 11+. '
         'Tap to grant it in Settings. Check the folder path if access still fails.';
   }
-  return 'Quicknote cannot write to this folder. Check its path and permissions.';
+  return 'TurboNotes cannot write to this folder. Check its path and permissions.';
 }

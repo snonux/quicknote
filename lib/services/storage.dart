@@ -40,7 +40,7 @@ Future<String> defaultNotesDirectory() async {
   return Directory.current.path;
 }
 
-/// Whether Quicknote can actually write notes into [path].
+/// Whether TurboNotes can actually write notes into [path].
 ///
 /// This mirrors what [DirectoryNoteStore.create] does -- create the directory if
 /// it is missing, then write a file into it -- because "can we write here?"
@@ -61,7 +61,7 @@ Future<bool> canWriteToDirectory(String path) async {
   final probe = File(
     p.join(
       path,
-      '.quicknote-write-probe-${DateTime.now().microsecondsSinceEpoch}'
+      '.turbonotes-write-probe-${DateTime.now().microsecondsSinceEpoch}'
       '-${Random.secure().nextInt(1 << 32)}',
     ),
   );

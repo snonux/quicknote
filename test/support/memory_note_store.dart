@@ -1,6 +1,7 @@
 import 'dart:io';
+import 'dart:typed_data';
 
-import 'package:quicknote/services/note_store.dart';
+import 'package:turbonotes/services/note_store.dart';
 
 /// In-memory [NoteStore] for widget tests: no dart:io futures, so it works
 /// on the fake clock of a testWidgets body (see AGENTS.md).
@@ -8,6 +9,7 @@ class MemoryNoteStore implements NoteStore {
   MemoryNoteStore(Map<String, String> notes) : notes = Map.of(notes);
 
   final Map<String, String> notes;
+  final Map<String, Uint8List> files = {};
 
   @override
   String get label => '/notes';
@@ -48,5 +50,19 @@ class MemoryNoteStore implements NoteStore {
   Future<void> rename(String from, String to) async {
     if (notes.containsKey(to)) throw NoteExistsException(to);
     notes[to] = notes.remove(from)!;
+  }
+
+  @override
+  Future<Uint8List> readBytes(String path) async {
+    final bytes = files[path];
+    if (bytes == null) throw PathNotFoundException(path, const OSError());
+    return bytes;
+  }
+
+  @override
+  Future<void> createBytes(String path, Uint8List bytes) async {
+    final p = normalizeAttachmentPath(path);
+    if (files.containsKey(p)) throw NoteExistsException(p);
+    files[p] = bytes;
   }
 }

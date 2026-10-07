@@ -1,8 +1,11 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.Manifest
 import android.app.Activity
 import android.content.ActivityNotFoundException
+import android.content.ClipData
+import android.content.ClipboardManager
+import android.content.Context
 import android.content.Intent
 import android.content.pm.PackageManager
 import android.net.Uri
@@ -23,9 +26,11 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
-    private val storageChannelName = "org.buetow.quicknote/storage"
-    private val safChannelName = "org.buetow.quicknote/saf"
-    private val safNotesChannelName = "org.buetow.quicknote/saf-notes"
+    private val storageChannelName = "org.buetow.turbonotes/storage"
+    private val safChannelName = "org.buetow.turbonotes/saf"
+    private val safNotesChannelName = "org.buetow.turbonotes/saf-notes"
+    private val clipboardChannelName = "org.buetow.turbonotes/clipboard"
+    private val shareChannelName = "org.buetow.turbonotes/share"
     private val requestLegacyStorage = 4203
     private val requestNoteTree = 4204
     private var pendingStorageResult: MethodChannel.Result? = null
@@ -54,11 +59,11 @@ class MainActivity : FlutterActivity() {
             }
         }
         val notes = SafNotes(contentResolver)
-        val executor = Executors.newSingleThreadExecutor { task -> Thread(task, "quicknote-saf") }
+        val executor = Executors.newSingleThreadExecutor { task -> Thread(task, "turbonotes-saf") }
         safExecutor = executor
         val main = Handler(Looper.getMainLooper())
         MethodChannel(messenger, safNotesChannelName).setMethodCallHandler { call, result ->
-            if (call.method !in setOf("list", "read", "write", "create", "delete", "rename")) {
+            if (call.method !in setOf("list", "read", "write", "create", "delete", "rename", "readBytes", "createBytes")) {
                 result.notImplemented()
                 return@setMethodCallHandler
             }
@@ -71,6 +76,12 @@ class MainActivity : FlutterActivity() {
                         "write" -> notes.write(tree, call.requireString("path"), call.requireString("text"))
                         "create" -> notes.create(tree, call.requireString("path"), call.requireString("text"))
                         "delete" -> notes.delete(tree, call.requireString("path"))
+                        "readBytes" -> notes.readBytes(tree, call.requireString("path"))
+                        "createBytes" -> notes.createBytes(
+                            tree,
+                            call.requireString("path"),
+                            call.argument<ByteArray>("bytes") ?: throw IllegalArgumentException("bytes is required."),
+                        )
                         else -> notes.rename(tree, call.requireString("from"), call.requireString("to"))
                     }
                     main.post { result.success(if (value is Unit) null else value) }
@@ -87,6 +98,83 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        MethodChannel(messenger, clipboardChannelName).setMethodCallHandler { call, result ->
+            if (call.method != "readImage") {
+                result.notImplemented()
+                return@setMethodCallHandler
+            }
+            // Read on the main thread (Android only lets the focused app see
+            // the clipboard), load the bytes off it.
+            val image = clipboardImage()
+            if (image == null) {
+                result.success(null)
+                return@setMethodCallHandler
+            }
+            executor.execute {
+                try {
+                    val bytes = contentResolver.openInputStream(image.first)?.use { readLimited(it) }
+                    main.post {
+                        result.success(bytes?.let { mapOf("bytes" to it, "mime" to image.second) })
+                    }
+                } catch (e: Exception) {
+                    main.post { result.error("io", e.message ?: e.toString(), null) }
+                }
+            }
+        }
+        MethodChannel(messenger, shareChannelName).setMethodCallHandler { call, result ->
+            try {
+                when (call.method) {
+                    "shareText" -> {
+                        share(Intent(Intent.ACTION_SEND).apply {
+                            type = "text/plain"
+                            putExtra(Intent.EXTRA_TEXT, call.requireString("text"))
+                            putExtra(Intent.EXTRA_SUBJECT, call.requireString("subject"))
+                        })
+                        result.success(null)
+                    }
+                    "shareFile" -> {
+                        val uri = ShareProvider.uriFor(call.requireString("name"))
+                        share(Intent(Intent.ACTION_SEND).apply {
+                            type = call.requireString("mime")
+                            putExtra(Intent.EXTRA_STREAM, uri)
+                            putExtra(Intent.EXTRA_SUBJECT, call.requireString("subject"))
+                            // The grant reaches the app picked in the chooser
+                            // only through the clip data.
+                            clipData = ClipData.newRawUri("", uri)
+                            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                        })
+                        result.success(null)
+                    }
+                    else -> result.notImplemented()
+                }
+            } catch (e: ActivityNotFoundException) {
+                result.error("no_app", "No app can receive this.", null)
+            } catch (e: IllegalArgumentException) {
+                result.error("bad_args", e.message, null)
+            }
+        }
+    }
+
+    private fun share(intent: Intent) {
+        startActivity(Intent.createChooser(intent, null).apply {
+            if (intent.clipData != null) addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+        })
+    }
+
+    /** The first image on the clipboard: its URI and MIME type. */
+    private fun clipboardImage(): Pair<Uri, String>? {
+        val clipboard = getSystemService(Context.CLIPBOARD_SERVICE) as ClipboardManager
+        val clip = clipboard.primaryClip ?: return null
+        for (i in 0 until clip.itemCount) {
+            val uri = clip.getItemAt(i).uri ?: continue
+            val mime = contentResolver.getType(uri)
+                ?: (0 until clip.description.mimeTypeCount)
+                    .map { clip.description.getMimeType(it) }
+                    .firstOrNull { it.startsWith("image/") }
+                ?: continue
+            if (mime.startsWith("image/")) return uri to mime
+        }
+        return null
     }
 
     override fun cleanUpFlutterEngine(flutterEngine: FlutterEngine) {
@@ -244,3 +332,18 @@ class MainActivity : FlutterActivity() {
 
 private fun MethodCall.requireString(key: String): String =
     argument<String>(key) ?: throw IllegalArgumentException("$key is required.")
+
+/** Images larger than this are refused rather than pulled into memory. */
+internal const val maxImageBytes = 32 * 1024 * 1024
+
+internal fun readLimited(input: java.io.InputStream): ByteArray {
+    val out = java.io.ByteArrayOutputStream()
+    val buffer = ByteArray(64 * 1024)
+    while (true) {
+        val n = input.read(buffer)
+        if (n < 0) break
+        out.write(buffer, 0, n)
+        if (out.size() > maxImageBytes) throw java.io.IOException("The image is larger than 32 MB.")
+    }
+    return out.toByteArray()
+}

@@ -1,1 +1,1 @@
-First release: file tree, fuzzy finder, raw and WYSIWYG markdown editing of a notes folder, a default Quicknote.md note one tap away, and autosave.
+First release: file tree, fuzzy finder, raw and WYSIWYG markdown editing of a notes folder, and autosave. Full-text search that forgives typos, pinned and recent notes, #tags with a tag tree, pasted images shown inline, sharing a note as text, PDF or image, and a home-screen widget and share target that add quick notes to TurboNotes.md without opening the app.

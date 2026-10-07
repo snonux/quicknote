@@ -2,9 +2,9 @@ import 'dart:io';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/screens/home_screen.dart';
-import 'package:quicknote/services/app_version.dart';
-import 'package:quicknote/services/preferences.dart';
+import 'package:turbonotes/screens/home_screen.dart';
+import 'package:turbonotes/services/app_version.dart';
+import 'package:turbonotes/services/preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/memory_note_store.dart';

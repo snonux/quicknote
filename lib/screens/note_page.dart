@@ -17,6 +17,11 @@ class NotePage extends StatefulWidget {
     required this.onModeChanged,
     required this.onRename,
     required this.onDelete,
+    this.initialSelection,
+    this.onSaved,
+    this.pinned = false,
+    this.onTogglePin,
+    this.onShare,
   });
 
   final NoteStore store;
@@ -24,6 +29,13 @@ class NotePage extends StatefulWidget {
   final EditorMode initialMode;
   final bool autofocus;
   final ValueChanged<EditorMode> onModeChanged;
+  final TextSelection? initialSelection;
+  final void Function(String path, String text)? onSaved;
+  final bool pinned;
+  final VoidCallback? onTogglePin;
+
+  /// Shares the note, given the text in the editor (unsaved edits too).
+  final ValueChanged<String>? onShare;
 
   /// Called once unsaved edits are saved: renaming moves the file as it is
   /// on disk.
@@ -40,6 +52,7 @@ class NotePage extends StatefulWidget {
 class _NotePageState extends State<NotePage> {
   final GlobalKey<NoteEditorState> _editor = GlobalKey();
   bool _dirty = false;
+  late bool _pinned = widget.pinned;
 
   Future<void> _rename() async {
     final editor = _editor.currentState;
@@ -80,6 +93,22 @@ class _NotePageState extends State<NotePage> {
             PopupMenuButton<VoidCallback>(
               onSelected: (action) => action(),
               itemBuilder: (_) => [
+                if (widget.onTogglePin != null)
+                  PopupMenuItem(
+                    value: () {
+                      setState(() => _pinned = !_pinned);
+                      widget.onTogglePin!();
+                    },
+                    child: Text(_pinned ? 'Unpin' : 'Pin'),
+                  ),
+                if (widget.onShare != null)
+                  PopupMenuItem(
+                    value: () {
+                      final text = _editor.currentState?.text;
+                      if (text != null) widget.onShare!(text);
+                    },
+                    child: const Text('Share…'),
+                  ),
                 PopupMenuItem(
                   value: _rename,
                   child: const Text('Rename / move'),
@@ -99,6 +128,8 @@ class _NotePageState extends State<NotePage> {
             path: widget.path,
             initialMode: widget.initialMode,
             autofocus: widget.autofocus,
+            initialSelection: widget.initialSelection,
+            onSaved: widget.onSaved,
             onModeChanged: widget.onModeChanged,
             onDirtyChanged: (d) => setState(() => _dirty = d),
           ),

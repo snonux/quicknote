@@ -1,4 +1,4 @@
-"""Draws the Quicknote logo: logo.png, logo-small.png, icon.png, the adaptive
+"""Draws the TurboNotes logo: logo.png, logo-small.png, icon.png, the adaptive
 launcher foreground (logo-foreground.png) and the F-Droid store icon.
 
 Needs Pillow. Run from the repository root, then regenerate the Android
@@ -22,7 +22,8 @@ def motif(scale=1.0):
     """The note page, drawn on a transparent S x S canvas, centered."""
     layer = Image.new('RGBA', (S, S), (0, 0, 0, 0))
     w, h = 1300 * scale, 1640 * scale
-    x0, y0 = (S - w) / 2, (S - h) / 2
+    # Shifted right of center to leave room for the speed streaks.
+    x0, y0 = (S - w) / 2 + 300 * scale, (S - h) / 2
     fold = 380 * scale
     r = 90 * scale
     # shadow
@@ -47,15 +48,13 @@ def motif(scale=1.0):
     teal, amber, grey = (0, 121, 107, 255), (255, 179, 0, 255), (176, 190, 197, 255)
     lw = 70 * scale
     cx = x0 + 170 * scale
-    # "#" heading mark
-    hy = y0 + 300 * scale
-    hs = 230 * scale
-    t = 52 * scale
-    for i in (0.3, 0.7):
-        d.line([(cx + hs * i + 25*scale, hy), (cx + hs * i - 25*scale, hy + hs)], fill=teal, width=int(t))
-        d.line([(cx - 10*scale, hy + hs * i), (cx + hs + 10*scale, hy + hs * i)], fill=teal, width=int(t))
+    # an amber lightning bolt, the "turbo"
+    hy = y0 + 250 * scale
+    hs = 330 * scale
+    bolt = [(0.62, 0.0), (0.10, 0.58), (0.44, 0.58), (0.30, 1.0), (0.90, 0.36), (0.55, 0.36), (0.72, 0.0)]
+    d.polygon([(cx + bx * hs * 0.8, hy + by * hs) for bx, by in bolt], fill=amber)
     # heading bar next to it
-    hx = cx + hs + 90 * scale
+    hx = cx + hs * 0.8 + 70 * scale
     d.rounded_rectangle([hx, hy + hs/2 - lw*0.75, x0 + w - fold - 40*scale, hy + hs/2 + lw*0.75], lw*0.75, fill=teal)
     # body lines
     ly = y0 + 760 * scale
@@ -69,15 +68,22 @@ def motif(scale=1.0):
     d.line([(cx + bs*0.22, ty + bs*0.52), (cx + bs*0.43, ty + bs*0.74), (cx + bs*0.8, ty + bs*0.28)],
            fill=(255, 255, 255, 255), width=int(30*scale), joint='curve')
     d.rounded_rectangle([cx + bs + 70*scale, ty + bs/2 - lw/2, cx + (w - 340*scale)*0.7, ty + bs/2 + lw/2], lw/2, fill=grey)
+    # speed streaks trailing off the left edge of the page
+    streak = (255, 255, 255, 200)
+    for i, (dy, length) in enumerate(((0.30, 420), (0.50, 560), (0.70, 380))):
+        yy = y0 + h * dy
+        sw = 64 * scale
+        d.rounded_rectangle([x0 - (length + 60) * scale, yy - sw / 2, x0 - 60 * scale, yy + sw / 2],
+                            sw / 2, fill=streak)
     return layer
 
 full = background()
-full.alpha_composite(motif(1.0))
+full.alpha_composite(motif(0.85))
 full.resize((600, 600), Image.LANCZOS).save('logo.png')
 full.resize((300, 300), Image.LANCZOS).save('logo-small.png')
 full.resize((64, 64), Image.LANCZOS).save('icon.png')
 # store listing icon (F-Droid)
 full.resize((512, 512), Image.LANCZOS).save('fastlane/metadata/android/en-US/images/icon.png')
 # adaptive foreground: motif inside the 66% safe zone, transparent
-fg = motif(1.0)
+fg = motif(0.64)
 fg.resize((1024, 1024), Image.LANCZOS).save('logo-foreground.png')

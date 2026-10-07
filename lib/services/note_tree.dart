@@ -84,3 +84,24 @@ String conflictCopyPath(String path, DateTime at) {
   final copy = '${displayName(path)} (conflict $stamp)$ext';
   return folder.isEmpty ? copy : '$folder/$copy';
 }
+
+/// Where an image added to the note at [notePath] is stored, and the link
+/// the note gets for it: `a/to do.md` ->
+/// (`a/attachments/to-do-20261007-180215.png`, `attachments/to-do-20261007-180215.png`).
+({String path, String link}) attachmentPathFor(
+  String notePath,
+  String extension,
+  DateTime at,
+) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final stamp =
+      '${at.year}${two(at.month)}${two(at.day)}-'
+      '${two(at.hour)}${two(at.minute)}${two(at.second)}';
+  final stem = displayName(
+    notePath,
+  ).replaceAll(RegExp(r'[^\p{L}\p{N}_-]+', unicode: true), '-');
+  final ext = extension.startsWith('.') ? extension : '.$extension';
+  final link = 'attachments/${stem.isEmpty ? 'image' : stem}-$stamp$ext';
+  final folder = parentPath(notePath);
+  return (path: folder.isEmpty ? link : '$folder/$link', link: link);
+}
