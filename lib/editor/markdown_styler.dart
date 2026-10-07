@@ -346,13 +346,26 @@ class MarkdownStyler {
     bool active,
     List<InlineSpan> out,
   ) {
+    // Each pattern's next match is cached: one found from an earlier
+    // position is still the first one from here while it starts at or after
+    // here. That keeps a long line linear instead of rescanning it per token.
+    final next = List<Match?>.filled(_inlinePatterns.length, null);
+    final exhausted = List<bool>.filled(_inlinePatterns.length, false);
     var pos = 0;
     while (pos < text.length) {
       Match? best;
       var bestKind = -1;
       for (var k = 0; k < _inlinePatterns.length; k++) {
-        final m = _inlinePatterns[k].allMatches(text, pos).firstOrNull;
-        if (m != null && (best == null || m.start < best.start)) {
+        if (exhausted[k]) continue;
+        var m = next[k];
+        if (m == null || m.start < pos) {
+          m = next[k] = _inlinePatterns[k].allMatches(text, pos).firstOrNull;
+          if (m == null) {
+            exhausted[k] = true;
+            continue;
+          }
+        }
+        if (best == null || m.start < best.start) {
           best = m;
           bestKind = k;
         }

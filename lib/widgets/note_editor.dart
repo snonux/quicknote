@@ -4,6 +4,7 @@ import 'package:flutter/services.dart';
 import '../editor/markdown_controller.dart';
 import '../services/note_store.dart';
 import '../services/preferences.dart';
+import 'feedback.dart';
 import 'format_toolbar.dart';
 
 enum _Conflict { cancel, reload, overwrite }
@@ -59,7 +60,6 @@ class NoteEditorState extends State<NoteEditor> {
 
   bool get dirty =>
       !_loading && _loadError == null && _controller.text != _original;
-  EditorMode get mode => _mode;
 
   @override
   void initState() {
@@ -175,7 +175,7 @@ class NoteEditorState extends State<NoteEditor> {
       // Stay in the editor so nothing typed is lost.
       if (mounted) {
         setState(() => _saving = false);
-        _snack('Could not save: $e', error: true);
+        _snack('Could not save: ${describeError(e)}', error: true);
       }
       return false;
     }
@@ -260,17 +260,8 @@ class NoteEditorState extends State<NoteEditor> {
     return answer ?? _Conflict.cancel;
   }
 
-  void _snack(String message, {bool error = false}) {
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    messenger?.hideCurrentSnackBar();
-    messenger?.showSnackBar(
-      SnackBar(
-        content: Text(message),
-        backgroundColor: error ? Theme.of(context).colorScheme.error : null,
-        duration: Duration(seconds: error ? 6 : 2),
-      ),
-    );
-  }
+  void _snack(String message, {bool error = false}) =>
+      showSnack(context, message, error: error);
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
@@ -289,7 +280,9 @@ class NoteEditorState extends State<NoteEditor> {
       return Center(
         child: Padding(
           padding: const EdgeInsets.all(24),
-          child: Text('Could not read ${widget.path}: $_loadError'),
+          child: Text(
+            'Could not read ${widget.path}: ${describeError(_loadError!)}',
+          ),
         ),
       );
     }

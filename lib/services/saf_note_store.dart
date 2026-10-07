@@ -39,13 +39,11 @@ class SafNoteStore implements NoteStore {
 
   @override
   Future<List<String>> list() async {
-    final paths = await _channel.invokeListMethod<String>('list', {
-      'treeUri': treeUri,
-    });
+    final paths = await _call<List<Object?>>('list');
     if (paths == null) {
       throw StateError('The document provider returned no listing.');
     }
-    return paths.where(isNotePath).toList()..sort();
+    return paths.whereType<String>().where(isNotePath).toList()..sort();
   }
 
   @override

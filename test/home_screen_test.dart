@@ -221,7 +221,7 @@ void main() {
     await pumpHome(tester);
     await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byTooltip('Show menu'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('Rename / move note'));
     await tester.pumpAndSettle();
@@ -252,4 +252,75 @@ void main() {
     expect(editor.focusNode!.hasFocus, isTrue);
     expect(editor.controller!.selection.baseOffset, '# fresh\n\n'.length);
   });
+
+  testWidgets('on a phone, rename reopens the note under its new name', (
+    tester,
+  ) async {
+    await pumpHome(tester, size: const Size(400, 800));
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byTooltip('Show menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Rename / move'));
+    await tester.pumpAndSettle();
+    await tester.enterText(find.byKey(const ValueKey('path-field')), 'later');
+    await tester.tap(find.text('Rename'));
+    await tester.pumpAndSettle();
+    expect(store.notes.keys, contains('later.md'));
+    expect(find.text('later.md'), findsOneWidget); // the page subtitle
+    expect(find.byType(BackButton), findsOneWidget);
+  });
+
+  testWidgets('on a phone, delete with unsaved edits closes the note', (
+    tester,
+  ) async {
+    await pumpHome(tester, size: const Size(400, 800));
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), 'edited');
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete'));
+    await tester.pumpAndSettle();
+    expect(find.text('Delete note?'), findsOneWidget);
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(store.notes.containsKey('inbox.md'), isFalse);
+    expect(find.byType(BackButton), findsNothing);
+    expect(find.byKey(const ValueKey('note:inbox.md')), findsNothing);
+  });
+
+  testWidgets('shortcuts still work after the open note is deleted', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.tap(field());
+    await tester.pump();
+    await tester.tap(find.byTooltip('Show menu'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Delete note'));
+    await tester.pumpAndSettle();
+    await tester.tap(
+      find.descendant(
+        of: find.byType(AlertDialog),
+        matching: find.text('Delete'),
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(field(), findsNothing);
+
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyP);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    expect(find.byKey(const ValueKey('fuzzy-query')), findsOneWidget);
+  }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
 }

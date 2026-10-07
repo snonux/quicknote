@@ -142,13 +142,6 @@ class NoteTreeView extends StatelessWidget {
   }
 }
 
-/// A note's file name without its markdown extension.
-String displayName(String path) {
-  final name = baseName(path);
-  final dot = name.lastIndexOf('.');
-  return dot > 0 ? name.substring(0, dot) : name;
-}
-
 class _Row {
   _Row.folder(NoteFolder this.folder, this.depth) : note = null;
   _Row.note(String this.note, this.depth) : folder = null;

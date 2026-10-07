@@ -51,6 +51,13 @@ class NoteFolder {
 
 String baseName(String path) => path.substring(path.lastIndexOf('/') + 1);
 
+/// A note's file name without its markdown extension.
+String displayName(String path) {
+  final name = baseName(path);
+  final dot = name.lastIndexOf('.');
+  return dot > 0 ? name.substring(0, dot) : name;
+}
+
 String parentPath(String path) {
   final i = path.lastIndexOf('/');
   return i < 0 ? '' : path.substring(0, i);

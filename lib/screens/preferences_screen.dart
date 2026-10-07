@@ -8,6 +8,7 @@ import '../services/saf_note_store.dart';
 import '../services/scoped_folder_service.dart';
 import '../services/storage.dart';
 import '../services/storage_access_service.dart';
+import '../widgets/feedback.dart';
 
 /// Notes folder and editor settings. Pops `true` when something was saved.
 class PreferencesScreen extends StatefulWidget {
@@ -122,9 +123,10 @@ class _PreferencesScreenState extends State<PreferencesScreen>
         await _folderPicker.release(picked.uri);
       }
       if (!mounted) return;
-      final message = e is PlatformException ? (e.message ?? e.code) : '$e';
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text('Cannot use the selected folder: $message')),
+      showSnack(
+        context,
+        'Cannot use the selected folder: ${describeError(e)}',
+        error: true,
       );
     }
   }
@@ -136,10 +138,10 @@ class _PreferencesScreenState extends State<PreferencesScreen>
       if (mounted) setState(() => _directoryWritable = writable);
     } on PlatformException catch (error) {
       if (!mounted) return;
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(error.message ?? 'Cannot open storage permissions.'),
-        ),
+      showSnack(
+        context,
+        error.message ?? 'Cannot open storage permissions.',
+        error: true,
       );
     }
   }
@@ -160,9 +162,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
     final folder = _scopedFolder;
     final directory = _dirController.text.trim();
     if (directory.isEmpty && folder == null) {
-      ScaffoldMessenger.of(
-        context,
-      ).showSnackBar(const SnackBar(content: Text('Enter a notes folder.')));
+      showSnack(context, 'Enter a notes folder.', error: true);
       return;
     }
     final previous = await _prefs.scopedFolder();

@@ -29,6 +29,10 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   replace this with a converter to another document model: a lossy round trip
   silently reformats people's notes.
 - `lib/services/fuzzy.dart` -- the fuzzy matcher behind the finder.
+- `lib/screens/home_screen.dart` -- tree plus editor side by side at 760 px
+  and wider; narrower, a note opens on its own `NotePage`. Note dialogs
+  (path prompt, delete confirmation) live in `lib/widgets/note_dialogs.dart`,
+  snackbars and user-facing error text in `lib/widgets/feedback.dart`.
 
 ## Releasing
 

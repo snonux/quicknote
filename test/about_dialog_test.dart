@@ -34,7 +34,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    await tester.tap(find.byType(PopupMenuButton<String>));
+    await tester.tap(find.byTooltip('Show menu'));
     await tester.pumpAndSettle();
     await tester.tap(find.text('About'));
     await tester.pumpAndSettle();
