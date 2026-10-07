@@ -27,8 +27,32 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   substituted 1:1, like `-` -> `•`), or the caret and selection drift. The
   test `emits exactly one character per source character` guards that. Never
   replace this with a converter to another document model: a lossy round trip
-  silently reformats people's notes.
+  silently reformats people's notes. An inline image off the active line
+  hides its source and turns the closing `)` into the `WidgetSpan`
+  placeholder, so the count still adds up. The WYSIWYG field needs
+  `strutStyle: StrutStyle.disabled`: the default forced strut keeps lines
+  from growing around images. Decoded images live in `AttachmentCache`
+  (`lib/widgets/note_image.dart`), which relayouts the editor once one loads.
 - `lib/services/fuzzy.dart` -- the fuzzy matcher behind the finder.
+- `lib/services/note_index.dart`, `text_search.dart`, `tags.dart` -- the
+  in-memory text index of all notes behind full-text search (typo tolerant)
+  and the `#tag` tree. `HomeScreen` keeps the index current through the
+  editor's `onSaved`.
+- `lib/services/note_export.dart` -- renders a note offscreen (its own
+  `PipelineOwner`/`BuildOwner`; GlobalKeys do not work there) to one PNG or
+  to an A4 PDF of page images, written by hand with `dart:io`'s zlib.
+  `share_service.dart` hands the result to the Android share sheet, or to the
+  clipboard and Downloads on Linux.
+- Platform channels besides SAF: `org.buetow.quicknote/clipboard` (image
+  paste; `MainActivity.kt` and `linux/runner/clipboard_channel.cc`) and
+  `org.buetow.quicknote/share` (`MainActivity.kt`, files served by
+  `ShareProvider.kt`).
+- Android quick capture is native Kotlin, not Flutter, so it opens without
+  starting the engine: `CaptureWidget.kt` (home-screen widget) and
+  `CaptureActivity.kt` (the dialog, also the share target) append through
+  `DefaultNote.kt`, which reads the Flutter preferences
+  (`flutter.ScopedTreeUri`, `flutter.Directory`, `flutter.DefaultNote`).
+  Keep those keys in sync with `lib/services/preferences.dart`.
 - `lib/screens/home_screen.dart` -- tree plus editor side by side at 760 px
   and wider; narrower, a note opens on its own `NotePage`. Note dialogs
   (path prompt, delete confirmation) live in `lib/widgets/note_dialogs.dart`,
@@ -38,9 +62,11 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   background or its window closes. That background save must never overwrite
   a note changed on disk (Syncthing); it writes a conflict copy instead
   (`conflictCopyPath`). Interactive saves ask in the "Changed on disk" dialog.
-- User docs: `docs/usage.md`, screenshots in `docs/images/` (taken from the
-  Linux build at its default 1100x720 window, phone shots at 400x760). Update
-  both when the UI changes.
+- User docs: `README.md` (kept short; install points to F-Droid),
+  `docs/usage.md` and `docs/install.md`, screenshots in `docs/images/`.
+  Screenshots are phone shots only (`phone-*.png`, 400x760), plus tablet
+  shots (`tablet-*.png`, 1280x800) only where the wide layout differs; no
+  desktop shots. Update the docs and shots when the UI changes.
 
 ## Releasing
 

@@ -1,17 +1,22 @@
 # Quicknote usage guide
 
 Quicknote edits a folder of plain Markdown files. This guide walks through
-everything it does. The screenshots are from the Linux build; the Android app
-looks the same, with the phone layout described in [On a phone](#on-a-phone).
+everything it does. The screenshots show a phone; on a tablet (and on the
+Linux desktop build) the tree and the note sit side by side, as shown in
+[The main screen](#the-main-screen).
 
 - [The notes folder](#the-notes-folder)
-- [The main window](#the-main-window)
+- [The main screen](#the-main-screen)
 - [The default note](#the-default-note)
 - [Finding notes](#finding-notes)
+- [Pinned and recent notes](#pinned-and-recent-notes)
+- [Tags](#tags)
 - [Editing](#editing)
+- [Images](#images)
 - [Saving](#saving)
 - [Creating, renaming and deleting notes](#creating-renaming-and-deleting-notes)
-- [On a phone](#on-a-phone)
+- [Sharing a note](#sharing-a-note)
+- [Quick capture on Android](#quick-capture-on-android)
 - [Preferences](#preferences)
 - [Storage on Android](#storage-on-android)
 - [Keyboard shortcuts](#keyboard-shortcuts)
@@ -37,31 +42,47 @@ Quicknote has no sync of its own and no network access at all. To have the
 same notes on several devices, point it at a folder that a sync tool such as
 Syncthing keeps in sync.
 
-## The main window
+## The main screen
 
-![The main window: file tree on the left, the open note on the right](images/overview.png)
+On a phone the main screen is the sidebar: pinned notes, recent notes, tags
+and the file tree of the notes folder. Tap a note to open it on a screen of
+its own; Back returns to the sidebar and saves the note on the way. Pull the
+sidebar down to refresh it.
 
-On a wide screen the window has two panes:
+![The sidebar on a phone: pinned, recent, tags and the file tree](images/phone-sidebar.png)
 
-- **Left: the file tree** of the notes folder. Folders come first, each with
-  the number of notes it holds (counting subfolders). Click a folder to open
-  or close it, click a note to open it.
-- **Right: the open note**, in the Raw or WYSIWYG editor.
+The sidebar has four sections. Tap a section's header to fold it away.
 
-The title bar shows the open note's name and its path in the notes folder. A
-`•` after the name means it has unsaved edits. The buttons on the right are,
-from left to right:
+- **Pinned**: notes you [pinned](#pinned-and-recent-notes).
+- **Recent**: the last few notes you opened.
+- **Tags**: every [`#tag`](#tags) in your notes, with the number of notes
+  using it.
+- **Notes**: the file tree. Folders come first, each with the number of
+  notes it holds (counting subfolders). Tap a folder to open or close it.
+
+The title shows the notes folder, or the open note's name and its path in
+the notes folder. A `•` after the name means it has unsaved edits. The
+buttons on the right are, from left to right:
 
 | Button | What it does |
 |--------|--------------|
 | Home | Opens the [default note](#the-default-note) (`Ctrl+D`) |
 | Search | Opens the [fuzzy finder](#fuzzy-finder) (`Ctrl+P`) |
+| Search text | Opens [full-text search](#full-text-search) (`Ctrl+Shift+F`) |
 | New note | [Creates a note](#creating-renaming-and-deleting-notes) (`Ctrl+N`) |
-| ⋮ menu | Refresh, Collapse all folders, Rename / move note, Delete note, Preferences, About |
+| ⋮ menu | Refresh, Collapse all folders, Preferences, About |
 
 **Refresh** (`F5`) re-reads the notes folder. Quicknote also refreshes on its
 own whenever you come back to the app, so notes another device synced in the
 meantime show up.
+
+### On a tablet
+
+On a wide screen, such as a tablet in landscape, the sidebar and the open note
+sit side by side, and the note's actions (pin, share, rename, delete) move
+into the ⋮ menu of the main screen:
+
+![A tablet: the sidebar on the left, the open note on the right](images/tablet-overview.png)
 
 ## The default note
 
@@ -86,19 +107,20 @@ Click a folder to open or close it. **Collapse all folders** in the ⋮ menu
 closes them all. Opening a note in any other way, such as the fuzzy finder,
 opens the folders on its path so that it is visible in the tree.
 
-Right-click a note (long-press on a touch screen) for **Rename / move** and
-**Delete**:
+Long-press a note (right-click with a mouse) for **Pin**, **Share…**,
+**Rename / move** and **Delete**:
 
-![Right-click menu on a note in the tree](images/tree-menu.png)
+![The long-press menu on a note in the tree](images/phone-tree-menu.png)
 
 ### Fuzzy finder
 
 The search button, `Ctrl+P` or `Ctrl+K` opens the fuzzy finder. Type a few
 letters of a note's path, in order, and it lists the notes that match, best
-first. The letters do not have to be next to each other: `qnrel` finds
-`projects/quicknote/release.md`. Matched letters are highlighted.
+first. The letters do not have to be next to each other: `prgar` finds
+`projects/garden.md`. Matched letters are highlighted. With an empty query
+it lists your recent notes first.
 
-![The fuzzy finder with the query qnrel](images/fuzzy-finder.png)
+![The fuzzy finder with the query prgar](images/phone-finder.png)
 
 - Matches in the file name rank above matches in folder names, and letters at
   the start of a word or right after each other rank higher.
@@ -108,6 +130,54 @@ first. The letters do not have to be next to each other: `qnrel` finds
   through the list, and `Enter` or a click to open a note. `Esc` closes the
   finder.
 - The count on the right shows how many notes match.
+
+### Full-text search
+
+The search-text button (the magnifier with lines) or `Ctrl+Shift+F` searches
+inside all notes. Each match shows its note and the lines it was found on,
+with the matches highlighted. Pick one and the note opens with the match
+selected.
+
+![Full-text search finds "meeting" when typed as "metting"](images/phone-search.png)
+
+- **Typos are forgiven.** Words of four to six letters may have one typo,
+  longer words two: `metting` finds `meeting`, `quikc` finds `quicknote`.
+  Exact matches rank first. Words of three letters or fewer must match
+  exactly.
+- **Several words** must all appear in a note, in any order. A word also
+  matches the note's name and folder.
+- **`#tag` words filter by tag**: `#work release` finds notes tagged `#work`
+  (or `#work/…`) that mention *release*. `#work` on its own lists every note
+  with that tag.
+- The keys are the same as in the fuzzy finder.
+
+The search reads all notes once when you first open it and keeps up with
+your edits from then on.
+
+## Pinned and recent notes
+
+Pin the notes you use most: long-press a note in the tree and choose
+**Pin**, or use **Pin** in an open note's ⋮ menu. Pinned notes stay at the
+top of the sidebar until you unpin them the same way.
+
+The **Recent** section lists the last five notes you opened, newest first.
+Quicknote remembers more of them for the fuzzy finder, which lists recent
+notes first while its query is empty. Renaming a note keeps it in both
+lists; deleting it removes it.
+
+## Tags
+
+Any word starting with `#` in a note is a tag: `#inbox`, `#shopping`,
+`#work/meetings`. A `/` nests tags, so `#work/meetings` shows up under
+`#work` in the sidebar. Tags are not case sensitive. Headings (`# Title`),
+numbers like `#42`, and anything in `code` are not tags. Tags are coloured
+in the WYSIWYG editor.
+
+Tap a tag in the sidebar to filter the file tree down to the notes that
+carry it; a tag includes its nested tags. The filter shows as a chip at the
+top of the sidebar. Tap the chip's ✕ to show all notes again.
+
+![The tree filtered by #work](images/phone-tag-filter.png)
 
 ## Editing
 
@@ -121,7 +191,7 @@ editor you used last and opens notes in it.
 The Markdown source exactly as it is on disk, in a monospace font. Nothing is
 hidden or changed.
 
-![The Raw editor](images/raw-editor.png)
+![The Raw editor](images/phone-raw.png)
 
 ### WYSIWYG
 
@@ -133,7 +203,7 @@ The Markdown syntax characters (`#`, `**`, `- [ ]` and so on) are hidden,
 except on the line the cursor is on, where they show dimmed so that you can
 see and edit them, like Typora or Obsidian's live preview:
 
-![The WYSIWYG editor; the line with the cursor shows its Markdown dimmed](images/wysiwyg-active-line.png)
+![The WYSIWYG editor; the line with the cursor shows its Markdown dimmed](images/phone-wysiwyg.png)
 
 The toolbar above the note inserts Markdown for you. With text selected,
 bold, italics, strikethrough and code wrap the selection; pressing a button
@@ -149,13 +219,52 @@ again removes the formatting.
 | Link | `[text](https://)`, with the selection as the text and the URL selected for typing |
 | Bulleted / numbered list | `- ` / `1. ` at the start of the line |
 | Task | `- [ ] `; on a task line it ticks or unticks it |
+| Image | Pastes an image from the clipboard; see [Images](#images) |
 | Quote | `> ` at the start of the line |
 
 Press `Enter` at the end of a list item and the next line continues the list:
 the same bullet, the next number, or a new open task. `Enter` on an empty
 item ends the list.
 
-`Ctrl+B` and `Ctrl+I` also work in the Raw editor.
+`Ctrl+B` and `Ctrl+I` also work in the Raw editor. On a phone the toolbar
+scrolls sideways.
+
+The note screen's ⋮ menu has **Pin**, **Share…**, **Rename / move** and
+**Delete**:
+
+![The note menu on a phone](images/phone-note-menu.png)
+
+## Images
+
+Paste an image into a note and Quicknote saves it next to the note and links
+it there:
+
+- **On Android**, copy an image (a screenshot, an image from the browser),
+  then press the image button in the toolbar. Keyboards that insert images,
+  such as Gboard's clipboard, work too.
+- **On the Linux desktop**, `Ctrl+V` pastes an image when the clipboard holds
+  one and no text. The toolbar button works as well.
+
+The image goes into an `attachments` folder next to the note, named after
+the note and the time, for example
+`projects/attachments/quicknote-20261007-193012.png`. The note gets a
+Markdown image link to it on a line of its own:
+
+```markdown
+![](attachments/quicknote-20261007-193012.png)
+```
+
+The WYSIWYG editor shows the image in place, up to 320 pixels high. When the
+cursor is on the image's line, the line shows its Markdown link instead, so
+you can add a description between the brackets or delete the image like any
+other text. The Raw editor always shows the link.
+
+![A note with an image in the WYSIWYG editor](images/phone-note-image.png)
+
+Images you add by hand show up the same way, as long as the link points to a
+`.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` file inside the notes folder,
+relative to the note. Images on the web are not loaded: Quicknote never
+touches the network. Deleting the link does not delete the image file.
 
 ## Saving
 
@@ -182,7 +291,7 @@ If a note was changed outside Quicknote since you opened it, for example
 because Syncthing delivered an edit from your laptop, saving it would
 silently throw away that change. So Quicknote asks first:
 
-![The Changed on disk dialog](images/conflict.png)
+![The Changed on disk dialog](images/phone-conflict.png)
 
 - **Cancel** keeps your edits in the editor and leaves the file alone.
 - **Reload** throws away your edits and shows the version on disk.
@@ -199,7 +308,7 @@ so. Compare the two and merge them by hand.
 **New note** (`Ctrl+N`) asks for a path. It starts with the folder of the
 open note, so a new note lands next to the one you are reading.
 
-![The New note dialog](images/new-note.png)
+![The New note dialog](images/phone-new-note.png)
 
 - Type a path such as `projects/garden/compost`; missing folders are created.
 - `.md` is added unless the name already ends in `.md` or `.markdown`.
@@ -209,7 +318,7 @@ open note, so a new note lands next to the one you are reading.
 The new note starts with a heading made from its name and opens with the
 cursor at the end.
 
-**Rename / move** (⋮ menu, or right-click the note in the tree) takes a new
+**Rename / move** (⋮ menu, or long-press the note in the tree) takes a new
 path. Change the folder part to move the note. Unsaved edits are saved first.
 
 **Delete** asks for confirmation and then deletes the file. There is no
@@ -218,25 +327,50 @@ trash, so a deleted note is gone unless your sync tool keeps old versions.
 Empty folders are not shown in the tree. Quicknote does not delete folders;
 remove empty ones with your file manager if you like.
 
-## On a phone
+## Sharing a note
 
-On a narrow screen the tree fills the screen, and a note opens on a screen of
-its own. Back returns to the tree and saves the note on the way. The editor's
-Raw and WYSIWYG switch shows icons only to save room.
+**Share…** in a note's ⋮ menu, or in the long-press menu in the tree, sends
+the note to another app. Pick a format first:
 
-| Tree | Note |
-|------|------|
-| ![The file tree on a phone](images/phone-tree.png) | ![A note on a phone](images/phone-note.png) |
+- **As text**: the Markdown source.
+- **As PDF**: the note as it looks in the WYSIWYG editor, images included,
+  on A4 pages.
+- **As image**: the whole note as one tall PNG, handy for chat apps.
 
-The note screen's ⋮ menu has **Rename / move** and **Delete**. Pull the tree
-down to refresh it.
+On Android the usual share sheet opens next, to send the note to mail, chat,
+Drive and so on. On the Linux desktop, text goes to the clipboard and PDFs
+and images are saved to your Downloads folder, with a button to open them.
+
+![A note shared as a PDF](images/pdf-export.png)
+
+## Quick capture on Android
+
+Two ways to jot something down without opening Quicknote. Both add to the
+[default note](#the-default-note).
+
+**Home-screen widget.** Long-press the home screen, choose *Widgets* and add
+**Quick note**. Tap the widget's text and a small dialog opens over the home
+screen, titled *Add to Quicknote.md*. Type, then tap **Add**: the text goes
+to the end of the default note as a paragraph of its own, and the dialog
+closes. **Open app** opens the note in Quicknote instead; the widget's icon
+does the same.
+
+**Share target.** In any app, share text or images and pick **Quick note**.
+The same dialog opens with the shared text filled in, so you can edit it
+before adding it. Shared images are saved to the `attachments` folder next
+to the default note and linked in it, as with [pasted images](#images).
+
+The text is added even when Quicknote has the default note open: the note
+reloads with the new text when you return to it, or you are asked as in
+[When a note changed on disk](#when-a-note-changed-on-disk) if you had
+unsaved edits.
 
 ## Preferences
 
 Open **Preferences** from the ⋮ menu. Press the check mark to save, or go
 back to discard the changes.
 
-![Preferences](images/preferences.png)
+![Preferences](images/phone-preferences.png)
 
 - **Notes folder**: the folder Quicknote works on. Type a path, or use the
   reset button to go back to the default. A red card warns when Quicknote
@@ -269,17 +403,22 @@ ways:
 
 ## Keyboard shortcuts
 
+With a keyboard, on a tablet or the Linux desktop:
+
+
 | Shortcut | Action |
 |----------|--------|
 | `Ctrl+D` | Open the default note |
 | `Ctrl+P`, `Ctrl+K` | Fuzzy finder |
+| `Ctrl+Shift+F` | Full-text search |
 | `Ctrl+N` | New note |
 | `F5` | Refresh the tree |
 | `Ctrl+S` | Save |
 | `Ctrl+E` | Switch between Raw and WYSIWYG |
 | `Ctrl+B` / `Ctrl+I` | Bold / italics |
-| In the finder: arrows, `Ctrl+N` / `Ctrl+P`, `Page Up` / `Page Down` | Move through the matches |
-| In the finder: `Enter` / `Esc` | Open the note / close |
+| `Ctrl+V` | Paste text, or an image when the clipboard holds no text |
+| In the finder and search: arrows, `Ctrl+N` / `Ctrl+P`, `Page Up` / `Page Down` | Move through the matches |
+| In the finder and search: `Enter` / `Esc` | Open the note / close |
 
 ## Why the WYSIWYG editor works the way it does
 
