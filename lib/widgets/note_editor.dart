@@ -1,0 +1,439 @@
+import 'dart:ui' show AppExitResponse;
+
+import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
+
+import '../editor/markdown_controller.dart';
+import '../services/note_store.dart';
+import '../services/note_tree.dart';
+import '../services/preferences.dart';
+import 'feedback.dart';
+import 'format_toolbar.dart';
+
+enum _Conflict { cancel, reload, overwrite }
+
+/// Editor for one note, with a Raw / WYSIWYG switch.
+///
+/// Both modes edit the same markdown source (see [MarkdownEditingController]),
+/// so switching is instant and never reformats anything. Saving writes back
+/// to the same path. If the file changed on disk since it was opened --
+/// Syncthing delivering an edit from another device, say -- the save asks
+/// before overwriting it.
+///
+/// Edits are saved automatically when the note is left ([saveBeforeLeave])
+/// and when the app goes to the background or its window closes. With
+/// nobody there to ask about a conflict, the background save writes the
+/// edits to a conflict copy next to the note instead of overwriting it.
+class NoteEditor extends StatefulWidget {
+  const NoteEditor({
+    super.key,
+    required this.store,
+    required this.path,
+    required this.initialMode,
+    this.onModeChanged,
+    this.onDirtyChanged,
+    this.autofocus = false,
+  });
+
+  final NoteStore store;
+  final String path;
+  final EditorMode initialMode;
+  final ValueChanged<EditorMode>? onModeChanged;
+  final ValueChanged<bool>? onDirtyChanged;
+
+  /// Focus the field with the caret at the end once loaded, e.g. for a note
+  /// that was just created.
+  final bool autofocus;
+
+  @override
+  State<NoteEditor> createState() => NoteEditorState();
+}
+
+class NoteEditorState extends State<NoteEditor> {
+  final MarkdownEditingController _controller = MarkdownEditingController();
+  final FocusNode _focus = FocusNode();
+  final ScrollController _scroll = ScrollController();
+  late EditorMode _mode = widget.initialMode;
+
+  /// The text on disk as last loaded or saved; "dirty" means the field
+  /// differs from it.
+  String _original = '';
+  bool _loading = true;
+  Object? _loadError;
+  bool _saving = false;
+  bool _lastDirty = false;
+
+  /// The text last written to a conflict copy, so repeated background saves
+  /// of the same edits do not pile up copies.
+  String? _conflictCopyOf;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onInactive: _saveInBackground,
+    onHide: _saveInBackground,
+    onPause: _saveInBackground,
+    onExitRequested: () async {
+      await _saveInBackground();
+      return AppExitResponse.exit;
+    },
+  );
+
+  bool get dirty =>
+      !_loading && _loadError == null && _controller.text != _original;
+
+  @override
+  void initState() {
+    super.initState();
+    _controller.wysiwyg = _mode == EditorMode.wysiwyg;
+    _controller.addListener(_onChanged);
+    _focus.addListener(_onFocus);
+    _lifecycle; // Created lazily; touch it so it starts listening.
+    _load();
+  }
+
+  @override
+  void didUpdateWidget(NoteEditor oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.path != widget.path || oldWidget.store != widget.store) {
+      setState(() {
+        _loading = true;
+        _loadError = null;
+      });
+      _load();
+    }
+  }
+
+  @override
+  void dispose() {
+    _lifecycle.dispose();
+    _controller.removeListener(_onChanged);
+    _controller.dispose();
+    _focus.removeListener(_onFocus);
+    _focus.dispose();
+    _scroll.dispose();
+    super.dispose();
+  }
+
+  void _onFocus() => _controller.focused = _focus.hasFocus;
+
+  void _onChanged() {
+    final d = dirty;
+    if (d != _lastDirty) {
+      _lastDirty = d;
+      widget.onDirtyChanged?.call(d);
+      setState(() {});
+    }
+  }
+
+  Future<void> _load() async {
+    final path = widget.path;
+    try {
+      final text = await widget.store.read(path);
+      if (!mounted || path != widget.path) return;
+      _original = text;
+      _controller.value = TextEditingValue(
+        text: text,
+        selection: TextSelection.collapsed(
+          offset: widget.autofocus ? text.length : 0,
+        ),
+      );
+      _loadError = null;
+    } catch (e) {
+      // Show the reason instead of an empty editor: saving an empty buffer
+      // over a note that merely could not be read would destroy it.
+      if (!mounted || path != widget.path) return;
+      _loadError = e;
+    }
+    setState(() => _loading = false);
+    _onChanged();
+    if (widget.autofocus && _loadError == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) _focus.requestFocus();
+      });
+    }
+  }
+
+  /// Puts the caret at the end of the note and focuses the field.
+  void focusAtEnd() {
+    if (_loading || _loadError != null) return;
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
+    _focus.requestFocus();
+  }
+
+  void setMode(EditorMode mode) {
+    if (mode == _mode) return;
+    setState(() {
+      _mode = mode;
+      _controller.wysiwyg = mode == EditorMode.wysiwyg;
+    });
+    widget.onModeChanged?.call(mode);
+    _focus.requestFocus();
+  }
+
+  /// Saves; returns whether the note on disk now holds the field's text
+  /// (after Reload in the conflict dialog it does: the field took the disk's).
+  /// [announce] shows a "Saved" snackbar; automatic saves stay quiet.
+  Future<bool> save({bool announce = true}) async {
+    if (_saving || _loading || _loadError != null) return false;
+    if (!dirty) return true;
+    setState(() => _saving = true);
+    final text = _controller.text;
+    try {
+      final onDisk = await widget.store.read(widget.path);
+      if (onDisk != _original && onDisk != text) {
+        if (!mounted) return false;
+        final choice = await _confirmOverwrite();
+        if (choice != _Conflict.overwrite) {
+          if (!mounted) return false;
+          setState(() => _saving = false);
+          if (choice == _Conflict.reload) {
+            _original = onDisk;
+            _controller.value = TextEditingValue(
+              text: onDisk,
+              selection: TextSelection.collapsed(
+                offset: _controller.selection.baseOffset.clamp(
+                  0,
+                  onDisk.length,
+                ),
+              ),
+            );
+            return true;
+          }
+          return false;
+        }
+      }
+      await widget.store.write(widget.path, text);
+    } catch (e) {
+      // Stay in the editor so nothing typed is lost.
+      if (mounted) {
+        setState(() => _saving = false);
+        _snack('Could not save: ${describeError(e)}', error: true);
+      }
+      return false;
+    }
+    if (!mounted) return true;
+    _original = text;
+    setState(() => _saving = false);
+    _onChanged();
+    if (announce) _snack('Saved ${widget.path}');
+    return true;
+  }
+
+  /// Saves without asking anything, for when the app goes to the background
+  /// or closes. A note changed on disk meanwhile is left alone; the edits go
+  /// to a conflict copy and stay unsaved here, so Save can still settle it.
+  Future<void> _saveInBackground() async {
+    if (_saving || !dirty) return;
+    final path = widget.path;
+    final text = _controller.text;
+    _saving = true;
+    try {
+      final onDisk = await widget.store.read(path);
+      if (onDisk == _original || onDisk == text) {
+        await widget.store.write(path, text);
+        if (path == widget.path) _original = text;
+      } else if (_conflictCopyOf != text) {
+        final copy = conflictCopyPath(path, DateTime.now());
+        await widget.store.create(copy, text);
+        _conflictCopyOf = text;
+        _snack('$path changed on disk; your edits are saved as $copy');
+      }
+    } catch (e) {
+      _snack('Could not save $path: ${describeError(e)}', error: true);
+    } finally {
+      _saving = false;
+      if (mounted) {
+        setState(() {});
+        _onChanged();
+      }
+    }
+  }
+
+  /// Puts the field back to the text loaded from disk.
+  void revert() {
+    _controller.value = TextEditingValue(
+      text: _original,
+      selection: TextSelection.collapsed(offset: _original.length),
+    );
+  }
+
+  /// Saves unsaved edits before the note is closed; true means it is fine
+  /// to leave. False only when the save failed or a conflict was cancelled,
+  /// so nothing typed is lost.
+  Future<bool> saveBeforeLeave() async {
+    if (_loading || _loadError != null || !dirty) return true;
+    return save(announce: false);
+  }
+
+  Future<_Conflict> _confirmOverwrite() async {
+    final answer = await showDialog<_Conflict>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Changed on disk'),
+        content: Text(
+          '${widget.path} was changed outside Quicknote since you opened it. '
+          'Overwrite replaces those changes with yours; Reload discards '
+          'your edits and shows the version on disk.',
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.cancel),
+            child: const Text('Cancel'),
+          ),
+          TextButton(
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.reload),
+            child: const Text('Reload'),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(_Conflict.overwrite),
+            child: const Text('Overwrite'),
+          ),
+        ],
+      ),
+    );
+    return answer ?? _Conflict.cancel;
+  }
+
+  void _snack(String message, {bool error = false}) {
+    if (mounted) showSnack(context, message, error: error);
+  }
+
+  Map<ShortcutActivator, VoidCallback> get _shortcuts => {
+    const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
+    const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
+        _controller.toggleWrap('**'),
+    const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
+        _controller.toggleWrap('*'),
+    const SingleActivator(LogicalKeyboardKey.keyE, control: true): () =>
+        setMode(_mode == EditorMode.raw ? EditorMode.wysiwyg : EditorMode.raw),
+  };
+
+  @override
+  Widget build(BuildContext context) {
+    if (_loading) return const Center(child: CircularProgressIndicator());
+    if (_loadError != null) {
+      return Center(
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Text(
+            'Could not read ${widget.path}: ${describeError(_loadError!)}',
+          ),
+        ),
+      );
+    }
+    final theme = Theme.of(context);
+    final wysiwyg = _mode == EditorMode.wysiwyg;
+    final base = wysiwyg
+        ? theme.textTheme.bodyLarge!.copyWith(height: 1.45)
+        : theme.textTheme.bodyMedium!.copyWith(
+            fontFamily: 'monospace',
+            fontFamilyFallback: const ['Noto Sans Mono', 'DejaVu Sans Mono'],
+            height: 1.4,
+          );
+    return CallbackShortcuts(
+      bindings: _shortcuts,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          _header(theme),
+          if (wysiwyg) FormatToolbar(controller: _controller, focus: _focus),
+          const Divider(height: 1),
+          Expanded(
+            child: TextField(
+              key: const ValueKey('note-editor-field'),
+              controller: _controller,
+              focusNode: _focus,
+              scrollController: _scroll,
+              expands: true,
+              maxLines: null,
+              minLines: null,
+              keyboardType: TextInputType.multiline,
+              textAlignVertical: TextAlignVertical.top,
+              style: base,
+              inputFormatters: [if (wysiwyg) ListContinuationFormatter()],
+              decoration: const InputDecoration(
+                border: InputBorder.none,
+                contentPadding: EdgeInsets.fromLTRB(16, 18, 16, 48),
+                hintText: 'Empty note',
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _header(ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _headerRow(theme, compact: constraints.maxWidth < 520),
+    );
+  }
+
+  /// [compact] drops the mode labels (the tooltips stay) so the header fits
+  /// one row on a phone.
+  Widget _headerRow(ThemeData theme, {required bool compact}) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
+      child: Wrap(
+        crossAxisAlignment: WrapCrossAlignment.center,
+        alignment: WrapAlignment.spaceBetween,
+        spacing: 8,
+        runSpacing: 4,
+        children: [
+          SegmentedButton<EditorMode>(
+            showSelectedIcon: false,
+            style: const ButtonStyle(visualDensity: VisualDensity.compact),
+            segments: [
+              ButtonSegment(
+                value: EditorMode.raw,
+                icon: const Icon(Icons.code),
+                label: compact ? null : const Text('Raw'),
+                tooltip: 'Raw: plain markdown source (Ctrl+E toggles)',
+              ),
+              ButtonSegment(
+                value: EditorMode.wysiwyg,
+                icon: const Icon(Icons.text_format),
+                label: compact ? null : const Text('WYSIWYG'),
+                tooltip: 'WYSIWYG: formatted markdown (Ctrl+E toggles)',
+              ),
+            ],
+            selected: {_mode},
+            onSelectionChanged: (s) => setMode(s.first),
+          ),
+          Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (dirty)
+                Padding(
+                  padding: const EdgeInsets.only(right: 4),
+                  child: Text(
+                    'Unsaved',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: theme.colorScheme.tertiary,
+                    ),
+                  ),
+                ),
+              IconButton(
+                tooltip: 'Revert to saved',
+                icon: const Icon(Icons.undo),
+                onPressed: dirty && !_saving ? revert : null,
+              ),
+              FilledButton.icon(
+                key: const ValueKey('note-save'),
+                onPressed: dirty && !_saving ? save : null,
+                icon: _saving
+                    ? const SizedBox.square(
+                        dimension: 16,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.save),
+                label: const Text('Save'),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}

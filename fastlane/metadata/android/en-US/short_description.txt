@@ -1,0 +1,1 @@
+Edit a folder of markdown notes: file tree, fuzzy finder, raw and WYSIWYG editor
