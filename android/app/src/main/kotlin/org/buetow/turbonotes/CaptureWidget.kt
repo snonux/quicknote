@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.app.PendingIntent
 import android.appwidget.AppWidgetManager
@@ -30,7 +30,7 @@ class CaptureWidget : AppWidgetProvider() {
         val note = try {
             DefaultNote(context).path
         } catch (e: IllegalArgumentException) {
-            "Quicknote.md"
+            "TurboNotes.md"
         }
         for (id in ids) {
             val views = RemoteViews(context.packageName, R.layout.capture_widget)
@@ -42,6 +42,6 @@ class CaptureWidget : AppWidgetProvider() {
     }
 
     companion object {
-        const val ACTION_CAPTURE = "org.buetow.quicknote.CAPTURE"
+        const val ACTION_CAPTURE = "org.buetow.turbonotes.CAPTURE"
     }
 }

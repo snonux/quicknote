@@ -25,7 +25,7 @@ class SavedFile extends ShareOutcome {
   final String path;
 }
 
-const _channel = MethodChannel('org.buetow.quicknote/share');
+const _channel = MethodChannel('org.buetow.turbonotes/share');
 
 /// Hands notes to other apps: the Android share sheet, or on the desktop
 /// the clipboard (text) and the Downloads folder (files).

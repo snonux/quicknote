@@ -1,7 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/app_version.dart';
+import 'package:turbonotes/services/app_version.dart';
 
 /// Guards the invariants F-Droid packaging depends on.
 ///

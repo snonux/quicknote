@@ -2,9 +2,9 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/directory_note_store.dart';
-import 'package:quicknote/services/note_store.dart';
-import 'package:quicknote/services/note_tree.dart';
+import 'package:turbonotes/services/directory_note_store.dart';
+import 'package:turbonotes/services/note_store.dart';
+import 'package:turbonotes/services/note_tree.dart';
 
 void main() {
   group('normalizeNotePath', () {

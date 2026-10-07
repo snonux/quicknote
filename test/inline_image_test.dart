@@ -2,9 +2,9 @@ import 'dart:typed_data';
 
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/preferences.dart';
-import 'package:quicknote/widgets/note_editor.dart';
-import 'package:quicknote/widgets/note_image.dart';
+import 'package:turbonotes/services/preferences.dart';
+import 'package:turbonotes/widgets/note_editor.dart';
+import 'package:turbonotes/widgets/note_image.dart';
 
 import 'support/memory_note_store.dart';
 

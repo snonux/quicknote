@@ -1,12 +1,12 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/tags.dart';
+import 'package:turbonotes/services/tags.dart';
 
 void main() {
   group('extractTags', () {
     test('finds plain and nested tags, lower-cased', () {
       expect(
-        extractTags('Plan #Work/Quicknote and #idea, also (#later).\n#todo'),
-        {'work/quicknote', 'idea', 'todo'},
+        extractTags('Plan #Work/TurboNotes and #idea, also (#later).\n#todo'),
+        {'work/turbonotes', 'idea', 'todo'},
       );
     });
 

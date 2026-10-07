@@ -35,14 +35,14 @@ if (!hasReleaseKeystore &&
     gradle.startParameter.taskNames.any { it.contains("Release", ignoreCase = true) }
 ) {
     logger.quiet(
-        "Quicknote: no android/key.properties found -- this release build will be " +
+        "TurboNotes: no android/key.properties found -- this release build will be " +
             "signed with the debug keys. Fine for local testing and for F-Droid " +
             "(which re-signs), not for an APK you hand to anyone else.",
     )
 }
 
 android {
-    namespace = "org.buetow.quicknote"
+    namespace = "org.buetow.turbonotes"
     compileSdk = flutter.compileSdkVersion
     ndkVersion = flutter.ndkVersion
 
@@ -56,7 +56,7 @@ android {
     }
 
     defaultConfig {
-        applicationId = "org.buetow.quicknote"
+        applicationId = "org.buetow.turbonotes"
         minSdk = flutter.minSdkVersion
         targetSdk = flutter.targetSdkVersion
         // Both come from the `version:` line in pubspec.yaml (see the comment there).

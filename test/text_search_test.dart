@@ -1,13 +1,13 @@
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/note_index.dart';
-import 'package:quicknote/services/text_search.dart';
+import 'package:turbonotes/services/note_index.dart';
+import 'package:turbonotes/services/text_search.dart';
 
 void main() {
   final index = NoteIndex({
     'journal/monday.md':
         '# Monday\n\nTeam meeting about the release.\n#work/meetings\n',
     'projects/quicknote.md':
-        '# Quicknote\n\nFuzzy search across notes. #work/quicknote\n',
+        '# TurboNotes\n\nFuzzy search across notes. #work/quicknote\n',
     'recipes/pancakes.md': '# Pancakes\n\n200 g flour, 2 eggs. #cooking\n',
     'todo.md': 'Call the plumber\n',
   });

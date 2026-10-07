@@ -10,7 +10,7 @@ import 'note_store.dart';
 class SafNoteStore implements NoteStore {
   SafNoteStore(this.treeUri, this.label, {MethodChannel? channel})
     : _channel =
-          channel ?? const MethodChannel('org.buetow.quicknote/saf-notes') {
+          channel ?? const MethodChannel('org.buetow.turbonotes/saf-notes') {
     if (treeUri.isEmpty) throw ArgumentError.value(treeUri, 'treeUri');
   }
 

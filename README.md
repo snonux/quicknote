@@ -1,12 +1,12 @@
-# Quicknote
+# TurboNotes
 
-<img src="logo-small.png" alt="Quicknote logo" width="120">
+<img src="logo-small.png" alt="TurboNotes logo" width="120">
 
-Quicknote is a small Android app for browsing and editing a folder of
+TurboNotes is a small Android app for browsing and editing a folder of
 Markdown notes. Point it at a folder, for example one Syncthing keeps in sync
 with your laptop, and every `.md` file in it is one tap away. It is a sibling
 of [Quicklog](https://github.com/snonux/quicklog): Quicklog jots down new
-notes; Quicknote edits the ones you already have.
+notes; TurboNotes edits the ones you already have.
 
 | Tree, pins and tags | A note with an image |
 |---------------------|----------------------|
@@ -33,7 +33,7 @@ notes; Quicknote edits the ones you already have.
 ## Install
 
 Install it from the [snonux F-Droid repository](https://github.com/snonux/fdroid):
-add the repository to F-Droid as described there, then install Quicknote like
+add the repository to F-Droid as described there, then install TurboNotes like
 any other app. F-Droid keeps it up to date.
 
 APKs by hand, the Linux desktop build and building from source:

@@ -1,6 +1,6 @@
-# Quicknote usage guide
+# TurboNotes usage guide
 
-Quicknote edits a folder of plain Markdown files. This guide walks through
+TurboNotes edits a folder of plain Markdown files. This guide walks through
 everything it does. The screenshots show a phone; on a tablet (and on the
 Linux desktop build) the tree and the note sit side by side, as shown in
 [The main screen](#the-main-screen).
@@ -24,7 +24,7 @@ Linux desktop build) the tree and the note sit side by side, as shown in
 
 ## The notes folder
 
-Quicknote works on one folder at a time, the *notes folder*. Every `.md` and
+TurboNotes works on one folder at a time, the *notes folder*. Every `.md` and
 `.markdown` file in it, and in all of its subfolders, is a note. Everything
 else is ignored:
 
@@ -38,7 +38,7 @@ On first start the notes folder is `~/Notes` on Linux and the app's own
 folder on Android (see [Storage on Android](#storage-on-android)). It is
 created if it does not exist. Change it in [Preferences](#preferences).
 
-Quicknote has no sync of its own and no network access at all. To have the
+TurboNotes has no sync of its own and no network access at all. To have the
 same notes on several devices, point it at a folder that a sync tool such as
 Syncthing keeps in sync.
 
@@ -72,7 +72,7 @@ buttons on the right are, from left to right:
 | New note | [Creates a note](#creating-renaming-and-deleting-notes) (`Ctrl+N`) |
 | ⋮ menu | Refresh, Collapse all folders, Preferences, About |
 
-**Refresh** (`F5`) re-reads the notes folder. Quicknote also refreshes on its
+**Refresh** (`F5`) re-reads the notes folder. TurboNotes also refreshes on its
 own whenever you come back to the app, so notes another device synced in the
 meantime show up.
 
@@ -86,12 +86,12 @@ into the ⋮ menu of the main screen:
 
 ## The default note
 
-The home button, or `Ctrl+D`, opens the default note, `Quicknote.md` at the
+The home button, or `Ctrl+D`, opens the default note, `TurboNotes.md` at the
 top of the notes folder. It is meant as a scratchpad for anything that needs
 writing down *now*: it opens with the cursor at the end, ready for typing.
 
 If the note does not exist yet, the home button creates it with a
-`# Quicknote` heading. Pressing the button while the note is already open
+`# TurboNotes` heading. Pressing the button while the note is already open
 puts the cursor back at its end.
 
 To use another note, change **Default note** in
@@ -141,7 +141,7 @@ selected.
 ![Full-text search finds "meeting" when typed as "metting"](images/phone-search.png)
 
 - **Typos are forgiven.** Words of four to six letters may have one typo,
-  longer words two: `metting` finds `meeting`, `quikc` finds `quicknote`.
+  longer words two: `metting` finds `meeting`, `turbnotes` finds `turbonotes`.
   Exact matches rank first. Words of three letters or fewer must match
   exactly.
 - **Several words** must all appear in a note, in any order. A word also
@@ -161,7 +161,7 @@ Pin the notes you use most: long-press a note in the tree and choose
 top of the sidebar until you unpin them the same way.
 
 The **Recent** section lists the last five notes you opened, newest first.
-Quicknote remembers more of them for the fuzzy finder, which lists recent
+TurboNotes remembers more of them for the fuzzy finder, which lists recent
 notes first while its query is empty. Renaming a note keeps it in both
 lists; deleting it removes it.
 
@@ -183,7 +183,7 @@ top of the sidebar. Tap the chip's ✕ to show all notes again.
 
 Every note can be edited in two editors. The Raw / WYSIWYG switch above the
 note, or `Ctrl+E`, flips between them. Both edit the same Markdown text, so
-switching is instant and never changes the file. Quicknote remembers the
+switching is instant and never changes the file. TurboNotes remembers the
 editor you used last and opens notes in it.
 
 ### Raw
@@ -236,7 +236,7 @@ The note screen's ⋮ menu has **Pin**, **Share…**, **Rename / move** and
 
 ## Images
 
-Paste an image into a note and Quicknote saves it next to the note and links
+Paste an image into a note and TurboNotes saves it next to the note and links
 it there:
 
 - **On Android**, copy an image (a screenshot, an image from the browser),
@@ -247,11 +247,11 @@ it there:
 
 The image goes into an `attachments` folder next to the note, named after
 the note and the time, for example
-`projects/attachments/quicknote-20261007-193012.png`. The note gets a
+`projects/attachments/roadmap-20261007-193012.png`. The note gets a
 Markdown image link to it on a line of its own:
 
 ```markdown
-![](attachments/quicknote-20261007-193012.png)
+![](attachments/roadmap-20261007-193012.png)
 ```
 
 The WYSIWYG editor shows the image in place, up to 320 pixels high. When the
@@ -263,12 +263,12 @@ other text. The Raw editor always shows the link.
 
 Images you add by hand show up the same way, as long as the link points to a
 `.png`, `.jpg`, `.jpeg`, `.gif` or `.webp` file inside the notes folder,
-relative to the note. Images on the web are not loaded: Quicknote never
+relative to the note. Images on the web are not loaded: TurboNotes never
 touches the network. Deleting the link does not delete the image file.
 
 ## Saving
 
-You rarely have to think about saving. Quicknote saves a note's edits
+You rarely have to think about saving. TurboNotes saves a note's edits
 automatically:
 
 - when you open another note,
@@ -287,9 +287,9 @@ never leaves half a note behind.
 
 ### When a note changed on disk
 
-If a note was changed outside Quicknote since you opened it, for example
+If a note was changed outside TurboNotes since you opened it, for example
 because Syncthing delivered an edit from your laptop, saving it would
-silently throw away that change. So Quicknote asks first:
+silently throw away that change. So TurboNotes asks first:
 
 ![The Changed on disk dialog](images/phone-conflict.png)
 
@@ -297,7 +297,7 @@ silently throw away that change. So Quicknote asks first:
 - **Reload** throws away your edits and shows the version on disk.
 - **Overwrite** replaces the version on disk with yours.
 
-When Quicknote has to save with nobody there to ask (the app went to the
+When TurboNotes has to save with nobody there to ask (the app went to the
 background or the window was closed), it never overwrites the changed note.
 It writes your edits to a copy next to it instead, named after the note and
 the time, for example `todo (conflict 2026-10-07 184013).md`, and tells you
@@ -312,7 +312,7 @@ open note, so a new note lands next to the one you are reading.
 
 - Type a path such as `projects/garden/compost`; missing folders are created.
 - `.md` is added unless the name already ends in `.md` or `.markdown`.
-- Quicknote never overwrites an existing note; it tells you if the name is
+- TurboNotes never overwrites an existing note; it tells you if the name is
   taken.
 
 The new note starts with a heading made from its name and opens with the
@@ -324,7 +324,7 @@ path. Change the folder part to move the note. Unsaved edits are saved first.
 **Delete** asks for confirmation and then deletes the file. There is no
 trash, so a deleted note is gone unless your sync tool keeps old versions.
 
-Empty folders are not shown in the tree. Quicknote does not delete folders;
+Empty folders are not shown in the tree. TurboNotes does not delete folders;
 remove empty ones with your file manager if you like.
 
 ## Sharing a note
@@ -345,14 +345,14 @@ and images are saved to your Downloads folder, with a button to open them.
 
 ## Quick capture on Android
 
-Two ways to jot something down without opening Quicknote. Both add to the
+Two ways to jot something down without opening TurboNotes. Both add to the
 [default note](#the-default-note).
 
 **Home-screen widget.** Long-press the home screen, choose *Widgets* and add
 **Quick note**. Tap the widget's text and a small dialog opens over the home
-screen, titled *Add to Quicknote.md*. Type, then tap **Add**: the text goes
+screen, titled *Add to TurboNotes.md*. Type, then tap **Add**: the text goes
 to the end of the default note as a paragraph of its own, and the dialog
-closes. **Open app** opens the note in Quicknote instead; the widget's icon
+closes. **Open app** opens the note in TurboNotes instead; the widget's icon
 does the same.
 
 **Share target.** In any app, share text or images and pick **Quick note**.
@@ -360,7 +360,7 @@ The same dialog opens with the shared text filled in, so you can edit it
 before adding it. Shared images are saved to the `attachments` folder next
 to the default note and linked in it, as with [pasted images](#images).
 
-The text is added even when Quicknote has the default note open: the note
+The text is added even when TurboNotes has the default note open: the note
 reloads with the new text when you return to it, or you are asked as in
 [When a note changed on disk](#when-a-note-changed-on-disk) if you had
 unsaved edits.
@@ -372,12 +372,12 @@ back to discard the changes.
 
 ![Preferences](images/phone-preferences.png)
 
-- **Notes folder**: the folder Quicknote works on. Type a path, or use the
-  reset button to go back to the default. A red card warns when Quicknote
+- **Notes folder**: the folder TurboNotes works on. Type a path, or use the
+  reset button to go back to the default. A red card warns when TurboNotes
   cannot write to the folder. A folder that does not exist yet is created.
 - **Default note**: the note the [home button](#the-default-note) opens,
   relative to the notes folder. The reset button sets it back to
-  `Quicknote.md`.
+  `TurboNotes.md`.
 - **Open notes in**: the editor notes open in. This also changes whenever you
   switch editors on a note.
 
@@ -387,14 +387,14 @@ menu of common folders; see below.
 ## Storage on Android
 
 By default notes live in the app's own folder,
-`/Android/data/org.buetow.quicknote/files/`. It needs no permission, but
+`/Android/data/org.buetow.turbonotes/files/`. It needs no permission, but
 Android deletes it when the app is uninstalled.
 
 For an existing notes folder, for example one Syncthing syncs, there are two
 ways:
 
 - **Choose folder with Android picker** (recommended): pick the folder in the
-  system picker. Android then grants Quicknote access to that folder only, and
+  system picker. Android then grants TurboNotes access to that folder only, and
   no storage permission is needed.
 - **Type a path** into shared storage, such as `/storage/emulated/0/Notes`.
   This needs the Storage permission on Android 7 to 10, or "All files access"
@@ -429,7 +429,7 @@ punctuation, drops blank lines and flattens tables. For a tool whose whole job
 is editing notes you already have, a save that reformats them is not
 acceptable.
 
-So Quicknote's WYSIWYG editor is a formatted *view* of the Markdown source.
+So TurboNotes's WYSIWYG editor is a formatted *view* of the Markdown source.
 What you type is the Markdown; the editor only changes how it is painted. That
 is why switching editors, or saving from either one, never changes a note's
 formatting, and why the syntax reappears on the line you are editing.

@@ -3,9 +3,9 @@ import 'package:flutter/gestures.dart' show kSecondaryButton;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/screens/home_screen.dart';
-import 'package:quicknote/services/preferences.dart';
-import 'package:quicknote/services/share_service.dart';
+import 'package:turbonotes/screens/home_screen.dart';
+import 'package:turbonotes/services/preferences.dart';
+import 'package:turbonotes/services/share_service.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'inline_image_test.dart' show kPng;
@@ -257,7 +257,7 @@ void main() {
     tester,
   ) async {
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-      const MethodChannel('org.buetow.quicknote/clipboard'),
+      const MethodChannel('org.buetow.turbonotes/clipboard'),
       (call) async => {'bytes': kPng, 'mime': 'image/png'},
     );
     tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
@@ -266,7 +266,7 @@ void main() {
     );
     addTearDown(() {
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
-        const MethodChannel('org.buetow.quicknote/clipboard'),
+        const MethodChannel('org.buetow.turbonotes/clipboard'),
         null,
       );
       tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(

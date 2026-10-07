@@ -1,8 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/screens/home_screen.dart';
-import 'package:quicknote/services/preferences.dart';
+import 'package:turbonotes/screens/home_screen.dart';
+import 'package:turbonotes/services/preferences.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'support/memory_note_store.dart';
@@ -167,19 +167,21 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the home button creates and opens Quicknote.md', (tester) async {
+  testWidgets('the home button creates and opens TurboNotes.md', (
+    tester,
+  ) async {
     await pumpHome(tester);
-    expect(find.byTooltip('Open Quicknote.md (Ctrl+D)'), findsOneWidget);
+    expect(find.byTooltip('Open TurboNotes.md (Ctrl+D)'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('default-note')));
     await tester.pumpAndSettle();
-    expect(store.notes['Quicknote.md'], '# Quicknote\n\n');
+    expect(store.notes['TurboNotes.md'], '# TurboNotes\n\n');
     expect(
       tester.widget<TextField>(field()).controller!.text,
-      '# Quicknote\n\n',
+      '# TurboNotes\n\n',
     );
 
     // Existing content is opened, never replaced.
-    await tester.enterText(field(), '# Quicknote\n\nkeep me\n');
+    await tester.enterText(field(), '# TurboNotes\n\nkeep me\n');
     await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
     await tester.pumpAndSettle();
     await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
@@ -187,7 +189,7 @@ void main() {
     await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
     await tester.pumpAndSettle();
     final editor = tester.widget<TextField>(field());
-    expect(editor.controller!.text, '# Quicknote\n\nkeep me\n');
+    expect(editor.controller!.text, '# TurboNotes\n\nkeep me\n');
     // Ready for typing: focused, caret at the end.
     expect(editor.focusNode!.hasFocus, isTrue);
     expect(
@@ -216,7 +218,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(field()).controller!.text, 'today');
     expect(find.byKey(const ValueKey('note:journal/today.md')), findsOneWidget);
-    expect(store.notes.containsKey('Quicknote.md'), isFalse);
+    expect(store.notes.containsKey('TurboNotes.md'), isFalse);
   });
 
   testWidgets('a changed file on disk is not overwritten silently', (

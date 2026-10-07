@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.content.ContentResolver
 import android.net.Uri

@@ -3,7 +3,7 @@ import 'package:flutter/services.dart';
 /// An image read from the system clipboard.
 typedef ClipboardImageData = ({Uint8List bytes, String extension});
 
-const _channel = MethodChannel('org.buetow.quicknote/clipboard');
+const _channel = MethodChannel('org.buetow.turbonotes/clipboard');
 
 /// File extension for an image MIME type, or null for one notes do not keep.
 String? imageExtensionFor(String mime) => switch (mime.toLowerCase()) {

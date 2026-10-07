@@ -1,5 +1,5 @@
-name: quicknote
-description: "Quicknote - edit a folder of markdown notes."
+name: turbonotes
+description: "TurboNotes - edit a folder of markdown notes."
 publish_to: 'none'
 
 # <semver>+<buildNumber>. The build number is a plain counter -- bump it by one

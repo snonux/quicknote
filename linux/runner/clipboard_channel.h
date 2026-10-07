@@ -3,7 +3,7 @@
 
 #include <flutter_linux/flutter_linux.h>
 
-// Registers the org.buetow.quicknote/clipboard channel on [view]'s engine:
+// Registers the org.buetow.turbonotes/clipboard channel on [view]'s engine:
 // "readImage" answers {bytes: PNG, mime: "image/png"} for an image on the
 // clipboard, or null. Flutter's own clipboard API only carries text.
 void clipboard_channel_register(FlView* view);

@@ -2,14 +2,14 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/note_store.dart';
-import 'package:quicknote/services/saf_note_store.dart';
+import 'package:turbonotes/services/note_store.dart';
+import 'package:turbonotes/services/saf_note_store.dart';
 
 /// The Dart half of the Android folder store, against a fake channel: the
 /// Kotlin half (SafNotes.kt) cannot run off-device.
 void main() {
   TestWidgetsFlutterBinding.ensureInitialized();
-  const channel = MethodChannel('org.buetow.quicknote/saf-notes');
+  const channel = MethodChannel('org.buetow.turbonotes/saf-notes');
   final calls = <MethodCall>[];
   late Future<Object?> Function(MethodCall call) handler;
 

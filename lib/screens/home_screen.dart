@@ -579,7 +579,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         FlutterErrorDetails(
           exception: e,
           stack: st,
-          library: 'quicknote',
+          library: 'turbonotes',
           context: ErrorDescription('while loading the app version for About'),
         ),
       );
@@ -587,7 +587,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (!mounted) return;
     showAboutDialog(
       context: context,
-      applicationName: 'Quicknote',
+      applicationName: 'TurboNotes',
       applicationVersion: version,
       applicationIcon: Image.asset('logo-small.png', width: 48, height: 48),
       applicationLegalese:
@@ -627,7 +627,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     final twoPane = _twoPane;
     final title = _selected != null && twoPane
         ? '${displayName(_selected!)}${_editorDirty ? ' •' : ''}'
-        : 'Quicknote';
+        : 'TurboNotes';
     return CallbackShortcuts(
       bindings: {
         const SingleActivator(LogicalKeyboardKey.keyP, control: true):

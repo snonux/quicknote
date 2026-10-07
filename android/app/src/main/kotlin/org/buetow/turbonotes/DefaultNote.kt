@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.content.Context
 import java.io.File
@@ -21,9 +21,9 @@ import java.util.Locale
 internal class DefaultNote(private val context: Context) {
     private val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
-    /** The note's path relative to the notes folder, e.g. "Quicknote.md". */
+    /** The note's path relative to the notes folder, e.g. "TurboNotes.md". */
     val path: String =
-        prefs.getString("flutter.DefaultNote", null)?.takeIf { it.isNotEmpty() } ?: "Quicknote.md"
+        prefs.getString("flutter.DefaultNote", null)?.takeIf { it.isNotEmpty() } ?: "TurboNotes.md"
 
     private val treeUri: String? = prefs.getString("flutter.ScopedTreeUri", null)?.takeIf { it.isNotEmpty() }
 

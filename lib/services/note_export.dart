@@ -416,7 +416,7 @@ class PdfImageWriter {
     _object(
       3,
       latin1.encode(
-        '<< /Producer (Quicknote)'
+        '<< /Producer (TurboNotes)'
         '${title == null ? '' : ' /Title ${_pdfString(title!)}'} >>',
       ),
     );

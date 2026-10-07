@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.Manifest
 import android.app.Activity
@@ -24,11 +24,11 @@ import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
 class MainActivity : FlutterActivity() {
-    private val storageChannelName = "org.buetow.quicknote/storage"
-    private val safChannelName = "org.buetow.quicknote/saf"
-    private val safNotesChannelName = "org.buetow.quicknote/saf-notes"
-    private val clipboardChannelName = "org.buetow.quicknote/clipboard"
-    private val shareChannelName = "org.buetow.quicknote/share"
+    private val storageChannelName = "org.buetow.turbonotes/storage"
+    private val safChannelName = "org.buetow.turbonotes/saf"
+    private val safNotesChannelName = "org.buetow.turbonotes/saf-notes"
+    private val clipboardChannelName = "org.buetow.turbonotes/clipboard"
+    private val shareChannelName = "org.buetow.turbonotes/share"
     private val requestLegacyStorage = 4203
     private val requestNoteTree = 4204
     private var pendingStorageResult: MethodChannel.Result? = null
@@ -56,7 +56,7 @@ class MainActivity : FlutterActivity() {
             }
         }
         val notes = SafNotes(contentResolver)
-        val executor = Executors.newSingleThreadExecutor { task -> Thread(task, "quicknote-saf") }
+        val executor = Executors.newSingleThreadExecutor { task -> Thread(task, "turbonotes-saf") }
         safExecutor = executor
         val main = Handler(Looper.getMainLooper())
         MethodChannel(messenger, safNotesChannelName).setMethodCallHandler { call, result ->

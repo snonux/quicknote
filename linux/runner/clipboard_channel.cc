@@ -46,7 +46,7 @@ void clipboard_channel_register(FlView* view) {
   g_autoptr(FlStandardMethodCodec) codec = fl_standard_method_codec_new();
   g_clear_object(&channel);
   channel = fl_method_channel_new(fl_engine_get_binary_messenger(engine),
-                                  "org.buetow.quicknote/clipboard",
+                                  "org.buetow.turbonotes/clipboard",
                                   FL_METHOD_CODEC(codec));
   fl_method_channel_set_method_call_handler(channel, method_call_cb, nullptr,
                                             nullptr);

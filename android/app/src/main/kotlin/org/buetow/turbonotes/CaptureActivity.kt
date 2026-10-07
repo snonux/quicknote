@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.app.Activity
 import android.content.Intent

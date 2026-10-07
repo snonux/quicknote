@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/editor/markdown_controller.dart';
-import 'package:quicknote/editor/markdown_styler.dart';
+import 'package:turbonotes/editor/markdown_controller.dart';
+import 'package:turbonotes/editor/markdown_styler.dart';
 
 const sample = '''# Title
 

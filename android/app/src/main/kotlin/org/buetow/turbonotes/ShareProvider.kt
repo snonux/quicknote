@@ -1,4 +1,4 @@
-package org.buetow.quicknote
+package org.buetow.turbonotes
 
 import android.content.ContentProvider
 import android.content.ContentValues
@@ -17,7 +17,7 @@ import java.io.FileNotFoundException
  */
 class ShareProvider : ContentProvider() {
     companion object {
-        const val AUTHORITY = "org.buetow.quicknote.share"
+        const val AUTHORITY = "org.buetow.turbonotes.share"
 
         fun uriFor(name: String): Uri =
             Uri.Builder().scheme("content").authority(AUTHORITY).appendPath(name).build()

@@ -11,7 +11,7 @@ class ScopedFolder {
 
 class ScopedFolderService {
   const ScopedFolderService({MethodChannel? channel})
-    : _channel = channel ?? const MethodChannel('org.buetow.quicknote/saf');
+    : _channel = channel ?? const MethodChannel('org.buetow.turbonotes/saf');
 
   final MethodChannel _channel;
 

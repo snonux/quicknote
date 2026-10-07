@@ -14,7 +14,7 @@ const _kRecent = 'RecentNotes';
 const kRecentLimit = 20;
 
 /// The note the home button opens unless Preferences names another.
-const kDefaultNotePath = 'Quicknote.md';
+const kDefaultNotePath = 'TurboNotes.md';
 
 /// Which editor a note opens in.
 enum EditorMode {

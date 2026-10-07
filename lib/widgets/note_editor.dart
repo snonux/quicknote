@@ -392,7 +392,7 @@ class NoteEditorState extends State<NoteEditor> {
       builder: (ctx) => AlertDialog(
         title: const Text('Changed on disk'),
         content: Text(
-          '${widget.path} was changed outside Quicknote since you opened it. '
+          '${widget.path} was changed outside TurboNotes since you opened it. '
           'Overwrite replaces those changes with yours; Reload discards '
           'your edits and shows the version on disk.',
         ),

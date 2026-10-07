@@ -1,11 +1,11 @@
 #!/usr/bin/env bash
-# One-time release setup for Quicknote. Run it from anywhere in the checkout:
+# One-time release setup for TurboNotes. Run it from anywhere in the checkout:
 #
 #   tool/setup_release.sh
 #
 # It is safe to run again; every step skips what is already done.
 #
-# 1. Creates the release keystore keys/quicknote-release.jks with a random
+# 1. Creates the release keystore keys/turbonotes-release.jks with a random
 #    password, unless it exists. BACK IT UP: it is the app's identity, and
 #    losing it means existing installs can never be updated.
 # 2. Writes android/key.properties for local release builds.
@@ -19,11 +19,17 @@
 set -euo pipefail
 
 repo=snonux/quicknote
-alias=quicknote
+alias=turbonotes
 root=$(git rev-parse --show-toplevel)
 cd "$root"
-keystore=keys/quicknote-release.jks
+keystore=keys/turbonotes-release.jks
 props=android/key.properties
+# A keystore made before the rename (keys/quicknote-release.jks) stays the
+# app's key: key.properties says where it is.
+if [[ -f $props ]]; then
+  stored=$(sed -n 's/^storeFile=//p' "$props")
+  [[ -n $stored ]] && keystore=$(realpath -m --relative-to=. "android/app/$stored")
+fi
 
 for tool in keytool openssl gh git; do
   command -v "$tool" >/dev/null || { echo "missing: $tool" >&2; exit 1; }
@@ -46,7 +52,7 @@ else
   keytool -genkeypair -noprompt -keystore "$keystore" -storetype PKCS12 \
     -alias "$alias" -keyalg RSA -keysize 4096 -validity 10000 \
     -storepass "$password" -keypass "$password" \
-    -dname "CN=Quicknote, O=snonux"
+    -dname "CN=TurboNotes, O=snonux"
   umask 077
   cat >"$props" <<EOF
 storeFile=../../$keystore

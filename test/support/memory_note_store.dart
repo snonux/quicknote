@@ -1,7 +1,7 @@
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:quicknote/services/note_store.dart';
+import 'package:turbonotes/services/note_store.dart';
 
 /// In-memory [NoteStore] for widget tests: no dart:io futures, so it works
 /// on the fake clock of a testWidgets body (see AGENTS.md).

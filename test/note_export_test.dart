@@ -3,7 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:quicknote/services/note_export.dart';
+import 'package:turbonotes/services/note_export.dart';
 
 import 'support/memory_note_store.dart';
 

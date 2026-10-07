@@ -1,6 +1,6 @@
-# Working on Quicknote
+# Working on TurboNotes
 
-Quicknote is a Flutter app (Android primary, Linux desktop for development)
+TurboNotes is a Flutter app (Android primary, Linux desktop for development)
 that edits every Markdown file in one configured notes folder. It is a sibling
 of snonux/quicklog and shares its toolchain, signing and release conventions,
 but has no S3 or any other network code: the Android release manifest has no
@@ -19,7 +19,7 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   addressed by relative POSIX paths (`projects/todo.md`), validated by
   `normalizeNotePath`. Two implementations: `DirectoryNoteStore` (dart:io,
   atomic writes) and `SafNoteStore` (Android document tree via the
-  `org.buetow.quicknote/saf-notes` channel, implemented in
+  `org.buetow.turbonotes/saf-notes` channel, implemented in
   `android/.../SafNotes.kt`). Keep their behaviour identical: same filtering
   (`.md`/`.markdown`, no dot-folders), `create` and `rename` never overwrite.
 - `lib/editor/` -- the WYSIWYG editor. `MarkdownStyler` paints the Markdown
@@ -43,9 +43,9 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   to an A4 PDF of page images, written by hand with `dart:io`'s zlib.
   `share_service.dart` hands the result to the Android share sheet, or to the
   clipboard and Downloads on Linux.
-- Platform channels besides SAF: `org.buetow.quicknote/clipboard` (image
+- Platform channels besides SAF: `org.buetow.turbonotes/clipboard` (image
   paste; `MainActivity.kt` and `linux/runner/clipboard_channel.cc`) and
-  `org.buetow.quicknote/share` (`MainActivity.kt`, files served by
+  `org.buetow.turbonotes/share` (`MainActivity.kt`, files served by
   `ShareProvider.kt`).
 - Android quick capture is native Kotlin, not Flutter, so it opens without
   starting the engine: `CaptureWidget.kt` (home-screen widget) and
@@ -92,8 +92,8 @@ F-Droid: build from `/tmp/build` against an SDK at `/opt/android-sdk`
 the signed per-ABI APKs and attaches them to the GitHub release. It needs the
 secrets `ANDROID_KEYSTORE` (base64 of the keystore), `ANDROID_KEY_ALIAS`,
 `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`;
-`FDROID_DISPATCH_TOKEN` is optional. Quicknote needs its **own** keystore
-(`keys/quicknote-release.jks`, git-ignored): it is the app's identity, and
+`FDROID_DISPATCH_TOKEN` is optional. TurboNotes needs its **own** keystore
+(`keys/turbonotes-release.jks`, git-ignored): it is the app's identity, and
 losing it means existing installs can never be updated.
 
 ## Signing

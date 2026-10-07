@@ -1,6 +1,6 @@
-# Installing and building Quicknote
+# Installing and building TurboNotes
 
-The easy way to install Quicknote on Android is the
+The easy way to install TurboNotes on Android is the
 [snonux F-Droid repository](https://github.com/snonux/fdroid); see the
 [README](../README.md#install). This page covers everything else: installing
 an APK by hand, the Linux desktop build, and building from source.
@@ -55,7 +55,7 @@ screenshots live in `fastlane/metadata/android/en-US/`. The details, and the
 traps, are in [AGENTS.md](../AGENTS.md).
 
 One-time setup for signed releases: `tool/setup_release.sh` creates the
-release keystore (`keys/quicknote-release.jks`, git-ignored; back it up) with a
+release keystore (`keys/turbonotes-release.jks`, git-ignored; back it up) with a
 random password, writes `android/key.properties`, sets the four `ANDROID_*`
 signing secrets with `gh`, and moves the workflows into `.github/workflows/`.
 It is safe to run again.
