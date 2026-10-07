@@ -70,3 +70,17 @@ Iterable<String> ancestorFolders(String path) sync* {
     yield segments.take(i).join('/');
   }
 }
+
+/// Where edits go when [path] changed on disk and nobody could be asked:
+/// `a/todo.md` -> `a/todo (conflict 2026-10-07 180215).md`, next to the note.
+String conflictCopyPath(String path, DateTime at) {
+  String two(int n) => n.toString().padLeft(2, '0');
+  final stamp =
+      '${at.year}-${two(at.month)}-${two(at.day)} ${two(at.hour)}${two(at.minute)}${two(at.second)}';
+  final name = baseName(path);
+  final dot = name.lastIndexOf('.');
+  final ext = dot > 0 ? name.substring(dot) : '.md';
+  final folder = parentPath(path);
+  final copy = '${displayName(path)} (conflict $stamp)$ext';
+  return folder.isEmpty ? copy : '$folder/$copy';
+}

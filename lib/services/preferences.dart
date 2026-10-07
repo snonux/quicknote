@@ -6,6 +6,10 @@ const _kDirectory = 'Directory';
 const _kScopedTreeUri = 'ScopedTreeUri';
 const _kScopedTreeName = 'ScopedTreeName';
 const _kEditorMode = 'EditorMode';
+const _kDefaultNote = 'DefaultNote';
+
+/// The note the home button opens unless Preferences names another.
+const kDefaultNotePath = 'Quicknote.md';
 
 /// Which editor a note opens in.
 enum EditorMode {
@@ -77,5 +81,21 @@ class PreferencesService {
   Future<void> setEditorMode(EditorMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kEditorMode, mode.name);
+  }
+
+  /// The note the home button opens, relative to the notes folder.
+  Future<String> defaultNote() async {
+    final prefs = await SharedPreferences.getInstance();
+    final stored = prefs.getString(_kDefaultNote);
+    return stored == null || stored.isEmpty ? kDefaultNotePath : stored;
+  }
+
+  Future<void> setDefaultNote(String path) async {
+    final prefs = await SharedPreferences.getInstance();
+    if (path == kDefaultNotePath) {
+      await prefs.remove(_kDefaultNote);
+    } else {
+      await prefs.setString(_kDefaultNote, path);
+    }
   }
 }

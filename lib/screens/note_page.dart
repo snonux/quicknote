@@ -5,8 +5,8 @@ import '../services/note_tree.dart';
 import '../services/preferences.dart';
 import '../widgets/note_editor.dart';
 
-/// A note on its own screen, for narrow (phone) layouts. Leaving with
-/// unsaved edits asks first, like switching notes in the two-pane layout.
+/// A note on its own screen, for narrow (phone) layouts. Leaving saves
+/// unsaved edits, like switching notes in the two-pane layout.
 class NotePage extends StatefulWidget {
   const NotePage({
     super.key,
@@ -25,8 +25,8 @@ class NotePage extends StatefulWidget {
   final bool autofocus;
   final ValueChanged<EditorMode> onModeChanged;
 
-  /// Called once unsaved edits are dealt with: renaming copies the file as
-  /// it is on disk.
+  /// Called once unsaved edits are saved: renaming moves the file as it is
+  /// on disk.
   final VoidCallback onRename;
 
   /// Called as is: deleting confirms on its own, and edits to a deleted
@@ -43,14 +43,14 @@ class _NotePageState extends State<NotePage> {
 
   Future<void> _rename() async {
     final editor = _editor.currentState;
-    if (editor != null && !await editor.confirmLeave()) return;
+    if (editor != null && !await editor.saveBeforeLeave()) return;
     widget.onRename();
   }
 
   Future<void> _onPop(bool didPop) async {
     if (didPop) return;
     final editor = _editor.currentState;
-    if (editor == null || !await editor.confirmLeave() || !mounted) return;
+    if (editor == null || !await editor.saveBeforeLeave() || !mounted) return;
     setState(() => _dirty = false);
     Navigator.of(context).pop();
   }

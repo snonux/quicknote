@@ -119,4 +119,17 @@ void main() {
       expect(ancestorFolders('c.md'), isEmpty);
     });
   });
+
+  test('conflict copies sit next to the note with a timestamp', () {
+    final at = DateTime(2026, 10, 7, 9, 5, 3);
+    expect(
+      conflictCopyPath('a/b/todo.md', at),
+      'a/b/todo (conflict 2026-10-07 090503).md',
+    );
+    expect(
+      conflictCopyPath('x.markdown', at),
+      'x (conflict 2026-10-07 090503).markdown',
+    );
+    expect(normalizeNotePath(conflictCopyPath('a/todo.md', at)), isNotEmpty);
+  });
 }

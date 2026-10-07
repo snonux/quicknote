@@ -1,1 +1,1 @@
-First release: file tree, fuzzy finder, raw and WYSIWYG markdown editing of a notes folder.
+First release: file tree, fuzzy finder, raw and WYSIWYG markdown editing of a notes folder, a default Quicknote.md note one tap away, and autosave.

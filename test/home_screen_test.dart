@@ -88,7 +88,7 @@ void main() {
     expect(await PreferencesService().editorMode(), EditorMode.raw);
   });
 
-  testWidgets('leaving a note with edits asks first', (tester) async {
+  testWidgets('switching notes saves the edits first', (tester) async {
     await pumpHome(tester);
     await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
     await tester.pumpAndSettle();
@@ -99,18 +99,124 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.byKey(const ValueKey('note:projects/plan.md')));
     await tester.pumpAndSettle();
-    expect(find.text('Unsaved changes'), findsOneWidget);
-
-    await tester.tap(find.text('Keep editing'));
-    await tester.pumpAndSettle();
-    expect(tester.widget<TextField>(field()).controller!.text, 'changed');
-
-    await tester.tap(find.byKey(const ValueKey('note:projects/plan.md')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Discard'));
-    await tester.pumpAndSettle();
+    expect(store.notes['inbox.md'], 'changed');
     expect(tester.widget<TextField>(field()).controller!.text, 'plan');
-    expect(store.notes['inbox.md'], '# Inbox\n');
+    expect(find.text('Saved inbox.md'), findsNothing); // autosave is quiet
+  });
+
+  testWidgets('a conflict on switching keeps the note open on Cancel', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), 'mine');
+    await tester.pump();
+    store.notes['inbox.md'] = 'theirs';
+    await tester.tap(find.byKey(const ValueKey('folder:projects')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('note:projects/plan.md')));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 300));
+    expect(find.text('Changed on disk'), findsOneWidget);
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field()).controller!.text, 'mine');
+    expect(store.notes['inbox.md'], 'theirs');
+  });
+
+  testWidgets('going to the background saves the open note', (tester) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), 'typed');
+    await tester.pump();
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(store.notes['inbox.md'], 'typed');
+    expect(find.text('Unsaved'), findsNothing);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('a background save never overwrites a change on disk', (
+    tester,
+  ) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), 'mine');
+    await tester.pump();
+    store.notes['inbox.md'] = 'theirs';
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.hidden);
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(store.notes['inbox.md'], 'theirs');
+    final copies = store.notes.keys
+        .where((k) => k.startsWith('inbox (conflict '))
+        .toList();
+    expect(copies, hasLength(1)); // not one per lifecycle event
+    expect(store.notes[copies.single], 'mine');
+    expect(find.text('Unsaved'), findsOneWidget);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.inactive);
+    tester.binding.handleAppLifecycleStateChanged(AppLifecycleState.resumed);
+    await tester.pumpAndSettle();
+  });
+
+  testWidgets('the home button creates and opens Quicknote.md', (tester) async {
+    await pumpHome(tester);
+    expect(find.byTooltip('Open Quicknote.md (Ctrl+D)'), findsOneWidget);
+    await tester.tap(find.byKey(const ValueKey('default-note')));
+    await tester.pumpAndSettle();
+    expect(store.notes['Quicknote.md'], '# Quicknote\n\n');
+    expect(
+      tester.widget<TextField>(field()).controller!.text,
+      '# Quicknote\n\n',
+    );
+
+    // Existing content is opened, never replaced.
+    await tester.enterText(field(), '# Quicknote\n\nkeep me\n');
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.keyD);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    await tester.pumpAndSettle();
+    final editor = tester.widget<TextField>(field());
+    expect(editor.controller!.text, '# Quicknote\n\nkeep me\n');
+    // Ready for typing: focused, caret at the end.
+    expect(editor.focusNode!.hasFocus, isTrue);
+    expect(
+      editor.controller!.selection.baseOffset,
+      editor.controller!.text.length,
+    );
+
+    // Pressed again while open, it still lands at the end.
+    editor.controller!.selection = const TextSelection.collapsed(offset: 0);
+    await tester.tap(find.byKey(const ValueKey('default-note')));
+    await tester.pumpAndSettle();
+    expect(editor.focusNode!.hasFocus, isTrue);
+    expect(
+      editor.controller!.selection.baseOffset,
+      editor.controller!.text.length,
+    );
+  });
+
+  testWidgets('the default note comes from Preferences', (tester) async {
+    SharedPreferences.setMockInitialValues({
+      'flutter.DefaultNote': 'journal/today.md',
+    });
+    store.notes['journal/today.md'] = 'today';
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('default-note')));
+    await tester.pumpAndSettle();
+    expect(tester.widget<TextField>(field()).controller!.text, 'today');
+    expect(find.byKey(const ValueKey('note:journal/today.md')), findsOneWidget);
+    expect(store.notes.containsKey('Quicknote.md'), isFalse);
   });
 
   testWidgets('a changed file on disk is not overwritten silently', (
@@ -185,14 +291,6 @@ void main() {
     await tester.enterText(field(), 'edited');
     await tester.pump();
     await tester.pageBack();
-    await tester.pumpAndSettle();
-    expect(find.text('Unsaved changes'), findsOneWidget);
-    await tester.tap(
-      find.descendant(
-        of: find.byType(AlertDialog),
-        matching: find.text('Save'),
-      ),
-    );
     await tester.pumpAndSettle();
     expect(store.notes['inbox.md'], 'edited');
     expect(find.byType(BackButton), findsNothing);
@@ -323,4 +421,17 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.byKey(const ValueKey('fuzzy-query')), findsOneWidget);
   }, variant: TargetPlatformVariant.only(TargetPlatform.linux));
+
+  testWidgets('on a phone the editor header fits one row', (tester) async {
+    await pumpHome(tester, size: const Size(400, 800));
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    expect(find.text('WYSIWYG'), findsNothing); // icons only
+    final save = tester.getCenter(find.byKey(const ValueKey('note-save')));
+    final mode = tester.getCenter(find.byIcon(Icons.text_format));
+    expect((save.dy - mode.dy).abs(), lessThan(4));
+    await tester.tap(find.byIcon(Icons.text_format));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Bold (Ctrl+B)'), findsOneWidget);
+  });
 }

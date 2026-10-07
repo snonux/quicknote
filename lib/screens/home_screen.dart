@@ -43,9 +43,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _selected;
   EditorMode _mode = EditorMode.raw;
   bool _editorDirty = false;
+  String _defaultNote = kDefaultNotePath;
 
-  /// A note just created here, so its editor opens focused at the end.
-  String? _created;
+  /// A note to open focused with the caret at the end: one just created
+  /// here, or the default note, which is there for jotting things down.
+  String? _focusOnOpen;
   final GlobalKey<NoteEditorState> _editorKey = GlobalKey();
 
   PreferencesService get _prefs => widget.preferences;
@@ -89,6 +91,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _init() async {
     _mode = await _prefs.editorMode();
+    _defaultNote = await _prefs.defaultNote();
     await _reload(reopenStore: true);
   }
 
@@ -140,7 +143,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (_twoPane) {
       if (path == _selected) return;
       final editor = _editorKey.currentState;
-      if (editor != null && !await editor.confirmLeave()) return;
+      if (editor != null && !await editor.saveBeforeLeave()) return;
       if (!mounted) return;
       setState(() {
         _selected = path;
@@ -155,7 +158,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           store: store,
           path: path,
           initialMode: _mode,
-          autofocus: _created == path,
+          autofocus: _focusOnOpen == path,
           onModeChanged: _setMode,
           onRename: () => _rename(path, fromNotePage: true),
           onDelete: () => _delete(path, fromNotePage: true),
@@ -194,8 +197,32 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _snack('Could not create $path: ${describeError(e)}', error: true);
       return;
     }
-    _created = path;
+    _focusOnOpen = path;
     await _reload();
+    if (mounted) await _open(path);
+  }
+
+  /// Opens the default note from Preferences, creating it on first use.
+  Future<void> _openDefaultNote() async {
+    final store = _store;
+    if (store == null || _error != null) return;
+    final path = _defaultNote;
+    _focusOnOpen = path;
+    if (_twoPane && path == _selected) {
+      _editorKey.currentState?.focusAtEnd();
+      return;
+    }
+    if (!_notes.contains(path)) {
+      try {
+        await store.create(path, '# ${displayName(path)}\n\n');
+      } on NoteExistsException {
+        // Created elsewhere since the last refresh: just open it.
+      } catch (e) {
+        _snack('Could not create $path: ${describeError(e)}', error: true);
+        return;
+      }
+      await _reload();
+    }
     if (mounted) await _open(path);
   }
 
@@ -206,7 +233,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (store == null) return;
     if (!fromNotePage && path == _selected) {
       final editor = _editorKey.currentState;
-      if (editor != null && !await editor.confirmLeave()) return;
+      if (editor != null && !await editor.saveBeforeLeave()) return;
     }
     if (!mounted) return;
     final target = await askNotePath(
@@ -275,7 +302,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
 
   Future<void> _openPreferences() async {
     final editor = _editorKey.currentState;
-    if (editor != null && !await editor.confirmLeave()) return;
+    if (editor != null && !await editor.saveBeforeLeave()) return;
     if (!mounted) return;
     final changed = await Navigator.of(context).push<bool>(
       MaterialPageRoute(builder: (_) => PreferencesScreen(preferences: _prefs)),
@@ -352,6 +379,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         const SingleActivator(LogicalKeyboardKey.keyK, control: true):
             _findNote,
         const SingleActivator(LogicalKeyboardKey.keyN, control: true): _newNote,
+        const SingleActivator(LogicalKeyboardKey.keyD, control: true):
+            _openDefaultNote,
         const SingleActivator(LogicalKeyboardKey.f5): _reload,
       },
       child: Focus(
@@ -372,6 +401,14 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               ],
             ),
             actions: [
+              IconButton(
+                key: const ValueKey('default-note'),
+                tooltip: 'Open $_defaultNote (Ctrl+D)',
+                icon: const Icon(Icons.home_outlined),
+                onPressed: _store == null || _error != null
+                    ? null
+                    : _openDefaultNote,
+              ),
               IconButton(
                 key: const ValueKey('find-note'),
                 tooltip: 'Find note (Ctrl+P)',
@@ -487,7 +524,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   store: store,
                   path: selected,
                   initialMode: _mode,
-                  autofocus: _created == selected,
+                  autofocus: _focusOnOpen == selected,
                   onModeChanged: _setMode,
                   onDirtyChanged: (d) => setState(() => _editorDirty = d),
                 ),

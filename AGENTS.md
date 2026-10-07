@@ -33,6 +33,14 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   and wider; narrower, a note opens on its own `NotePage`. Note dialogs
   (path prompt, delete confirmation) live in `lib/widgets/note_dialogs.dart`,
   snackbars and user-facing error text in `lib/widgets/feedback.dart`.
+- `lib/widgets/note_editor.dart` -- saves on its own: `saveBeforeLeave()`
+  before anything closes the note, and a quiet save when the app goes to the
+  background or its window closes. That background save must never overwrite
+  a note changed on disk (Syncthing); it writes a conflict copy instead
+  (`conflictCopyPath`). Interactive saves ask in the "Changed on disk" dialog.
+- User docs: `docs/usage.md`, screenshots in `docs/images/` (taken from the
+  Linux build at its default 1100x720 window, phone shots at 400x760). Update
+  both when the UI changes.
 
 ## Releasing
 

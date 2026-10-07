@@ -3,6 +3,7 @@ import 'dart:io' show Directory, FileSystemException, Platform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 
+import '../services/note_store.dart';
 import '../services/preferences.dart';
 import '../services/saf_note_store.dart';
 import '../services/scoped_folder_service.dart';
@@ -29,6 +30,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
     with WidgetsBindingObserver {
   PreferencesService get _prefs => widget.preferences;
   final TextEditingController _dirController = TextEditingController();
+  final TextEditingController _defaultNoteController = TextEditingController();
   EditorMode _mode = EditorMode.raw;
   bool _loaded = false;
   // Whether the typed directory is actually writable -- not whether the
@@ -56,6 +58,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   void dispose() {
     WidgetsBinding.instance.removeObserver(this);
     _dirController.dispose();
+    _defaultNoteController.dispose();
     // Grants picked but never saved are not kept.
     for (final uri in _unsavedTreeUris) {
       _folderPicker.release(uri);
@@ -79,6 +82,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
         ? null
         : ScopedFolder(folder.uri, folder.name);
     _mode = await _prefs.editorMode();
+    _defaultNoteController.text = await _prefs.defaultNote();
     _androidStorageApiLevel = await StorageAccessService.storageApiLevel();
     await _checkAccess();
     if (!mounted) return;
@@ -165,6 +169,14 @@ class _PreferencesScreenState extends State<PreferencesScreen>
       showSnack(context, 'Enter a notes folder.', error: true);
       return;
     }
+    final String defaultNote;
+    try {
+      final typed = _defaultNoteController.text.trim();
+      defaultNote = typed.isEmpty ? kDefaultNotePath : normalizeNotePath(typed);
+    } on InvalidNotePathException catch (e) {
+      showSnack(context, 'Default note: ${e.message}', error: true);
+      return;
+    }
     final previous = await _prefs.scopedFolder();
     // The default stays "default", so it follows the platform's location.
     if (directory.isEmpty || directory == await defaultNotesDirectory()) {
@@ -190,6 +202,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
       await _folderPicker.release(previous.uri);
     }
     await _prefs.setEditorMode(_mode);
+    await _prefs.setDefaultNote(defaultNote);
     if (mounted) Navigator.of(context).pop(true);
   }
 
@@ -298,6 +311,31 @@ class _PreferencesScreenState extends State<PreferencesScreen>
             'Every .md and .markdown file in this folder and its subfolders '
             'shows up in the file tree. Folders starting with "." (like .git '
             'or .obsidian) are skipped.',
+            style: theme.textTheme.bodySmall,
+          ),
+          const SizedBox(height: 24),
+          const Text(
+            'Default note:',
+            style: TextStyle(fontWeight: FontWeight.bold),
+          ),
+          const SizedBox(height: 4),
+          TextField(
+            key: const ValueKey('prefs.default-note'),
+            controller: _defaultNoteController,
+            decoration: InputDecoration(
+              border: const OutlineInputBorder(),
+              hintText: kDefaultNotePath,
+              suffixIcon: IconButton(
+                tooltip: 'Reset to $kDefaultNotePath',
+                icon: const Icon(Icons.restore),
+                onPressed: () => _defaultNoteController.text = kDefaultNotePath,
+              ),
+            ),
+          ),
+          const SizedBox(height: 8),
+          Text(
+            'The home button (Ctrl+D) opens this note, relative to the notes '
+            'folder, and creates it if it does not exist yet.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 24),

@@ -1,16 +1,16 @@
+import 'dart:ui' show AppExitResponse;
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../editor/markdown_controller.dart';
 import '../services/note_store.dart';
+import '../services/note_tree.dart';
 import '../services/preferences.dart';
 import 'feedback.dart';
 import 'format_toolbar.dart';
 
 enum _Conflict { cancel, reload, overwrite }
-
-/// What the user chose when leaving a note with unsaved edits.
-enum LeaveDecision { save, discard, stay }
 
 /// Editor for one note, with a Raw / WYSIWYG switch.
 ///
@@ -19,6 +19,11 @@ enum LeaveDecision { save, discard, stay }
 /// to the same path. If the file changed on disk since it was opened --
 /// Syncthing delivering an edit from another device, say -- the save asks
 /// before overwriting it.
+///
+/// Edits are saved automatically when the note is left ([saveBeforeLeave])
+/// and when the app goes to the background or its window closes. With
+/// nobody there to ask about a conflict, the background save writes the
+/// edits to a conflict copy next to the note instead of overwriting it.
 class NoteEditor extends StatefulWidget {
   const NoteEditor({
     super.key,
@@ -58,6 +63,19 @@ class NoteEditorState extends State<NoteEditor> {
   bool _saving = false;
   bool _lastDirty = false;
 
+  /// The text last written to a conflict copy, so repeated background saves
+  /// of the same edits do not pile up copies.
+  String? _conflictCopyOf;
+  late final AppLifecycleListener _lifecycle = AppLifecycleListener(
+    onInactive: _saveInBackground,
+    onHide: _saveInBackground,
+    onPause: _saveInBackground,
+    onExitRequested: () async {
+      await _saveInBackground();
+      return AppExitResponse.exit;
+    },
+  );
+
   bool get dirty =>
       !_loading && _loadError == null && _controller.text != _original;
 
@@ -67,6 +85,7 @@ class NoteEditorState extends State<NoteEditor> {
     _controller.wysiwyg = _mode == EditorMode.wysiwyg;
     _controller.addListener(_onChanged);
     _focus.addListener(_onFocus);
+    _lifecycle; // Created lazily; touch it so it starts listening.
     _load();
   }
 
@@ -84,6 +103,7 @@ class NoteEditorState extends State<NoteEditor> {
 
   @override
   void dispose() {
+    _lifecycle.dispose();
     _controller.removeListener(_onChanged);
     _controller.dispose();
     _focus.removeListener(_onFocus);
@@ -131,6 +151,15 @@ class NoteEditorState extends State<NoteEditor> {
     }
   }
 
+  /// Puts the caret at the end of the note and focuses the field.
+  void focusAtEnd() {
+    if (_loading || _loadError != null) return;
+    _controller.selection = TextSelection.collapsed(
+      offset: _controller.text.length,
+    );
+    _focus.requestFocus();
+  }
+
   void setMode(EditorMode mode) {
     if (mode == _mode) return;
     setState(() {
@@ -141,8 +170,10 @@ class NoteEditorState extends State<NoteEditor> {
     _focus.requestFocus();
   }
 
-  /// Saves; returns whether the note on disk now holds the field's text.
-  Future<bool> save() async {
+  /// Saves; returns whether the note on disk now holds the field's text
+  /// (after Reload in the conflict dialog it does: the field took the disk's).
+  /// [announce] shows a "Saved" snackbar; automatic saves stay quiet.
+  Future<bool> save({bool announce = true}) async {
     if (_saving || _loading || _loadError != null) return false;
     if (!dirty) return true;
     setState(() => _saving = true);
@@ -166,6 +197,7 @@ class NoteEditorState extends State<NoteEditor> {
                 ),
               ),
             );
+            return true;
           }
           return false;
         }
@@ -183,8 +215,38 @@ class NoteEditorState extends State<NoteEditor> {
     _original = text;
     setState(() => _saving = false);
     _onChanged();
-    _snack('Saved ${widget.path}');
+    if (announce) _snack('Saved ${widget.path}');
     return true;
+  }
+
+  /// Saves without asking anything, for when the app goes to the background
+  /// or closes. A note changed on disk meanwhile is left alone; the edits go
+  /// to a conflict copy and stay unsaved here, so Save can still settle it.
+  Future<void> _saveInBackground() async {
+    if (_saving || !dirty) return;
+    final path = widget.path;
+    final text = _controller.text;
+    _saving = true;
+    try {
+      final onDisk = await widget.store.read(path);
+      if (onDisk == _original || onDisk == text) {
+        await widget.store.write(path, text);
+        if (path == widget.path) _original = text;
+      } else if (_conflictCopyOf != text) {
+        final copy = conflictCopyPath(path, DateTime.now());
+        await widget.store.create(copy, text);
+        _conflictCopyOf = text;
+        _snack('$path changed on disk; your edits are saved as $copy');
+      }
+    } catch (e) {
+      _snack('Could not save $path: ${describeError(e)}', error: true);
+    } finally {
+      _saving = false;
+      if (mounted) {
+        setState(() {});
+        _onChanged();
+      }
+    }
   }
 
   /// Puts the field back to the text loaded from disk.
@@ -195,40 +257,12 @@ class NoteEditorState extends State<NoteEditor> {
     );
   }
 
-  /// Asks about unsaved edits before the note is closed; true means it is
-  /// fine to leave (saved, discarded, or nothing to lose).
-  Future<bool> confirmLeave() async {
-    if (!dirty) return true;
-    final decision = await showDialog<LeaveDecision>(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Unsaved changes'),
-        content: Text('${widget.path} has edits that are not saved.'),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(LeaveDecision.stay),
-            child: const Text('Keep editing'),
-          ),
-          TextButton(
-            onPressed: () => Navigator.of(ctx).pop(LeaveDecision.discard),
-            child: const Text('Discard'),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(ctx).pop(LeaveDecision.save),
-            child: const Text('Save'),
-          ),
-        ],
-      ),
-    );
-    switch (decision) {
-      case LeaveDecision.save:
-        return save();
-      case LeaveDecision.discard:
-        return true;
-      case LeaveDecision.stay:
-      case null:
-        return false;
-    }
+  /// Saves unsaved edits before the note is closed; true means it is fine
+  /// to leave. False only when the save failed or a conflict was cancelled,
+  /// so nothing typed is lost.
+  Future<bool> saveBeforeLeave() async {
+    if (_loading || _loadError != null || !dirty) return true;
+    return save(announce: false);
   }
 
   Future<_Conflict> _confirmOverwrite() async {
@@ -260,8 +294,9 @@ class NoteEditorState extends State<NoteEditor> {
     return answer ?? _Conflict.cancel;
   }
 
-  void _snack(String message, {bool error = false}) =>
-      showSnack(context, message, error: error);
+  void _snack(String message, {bool error = false}) {
+    if (mounted) showSnack(context, message, error: error);
+  }
 
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
@@ -318,7 +353,7 @@ class NoteEditorState extends State<NoteEditor> {
               inputFormatters: [if (wysiwyg) ListContinuationFormatter()],
               decoration: const InputDecoration(
                 border: InputBorder.none,
-                contentPadding: EdgeInsets.fromLTRB(16, 12, 16, 48),
+                contentPadding: EdgeInsets.fromLTRB(16, 18, 16, 48),
                 hintText: 'Empty note',
               ),
             ),
@@ -329,6 +364,15 @@ class NoteEditorState extends State<NoteEditor> {
   }
 
   Widget _header(ThemeData theme) {
+    return LayoutBuilder(
+      builder: (context, constraints) =>
+          _headerRow(theme, compact: constraints.maxWidth < 520),
+    );
+  }
+
+  /// [compact] drops the mode labels (the tooltips stay) so the header fits
+  /// one row on a phone.
+  Widget _headerRow(ThemeData theme, {required bool compact}) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(12, 6, 8, 6),
       child: Wrap(
@@ -340,18 +384,18 @@ class NoteEditorState extends State<NoteEditor> {
           SegmentedButton<EditorMode>(
             showSelectedIcon: false,
             style: const ButtonStyle(visualDensity: VisualDensity.compact),
-            segments: const [
+            segments: [
               ButtonSegment(
                 value: EditorMode.raw,
-                icon: Icon(Icons.code),
-                label: Text('Raw'),
-                tooltip: 'Plain markdown source (Ctrl+E toggles)',
+                icon: const Icon(Icons.code),
+                label: compact ? null : const Text('Raw'),
+                tooltip: 'Raw: plain markdown source (Ctrl+E toggles)',
               ),
               ButtonSegment(
                 value: EditorMode.wysiwyg,
-                icon: Icon(Icons.text_format),
-                label: Text('WYSIWYG'),
-                tooltip: 'Formatted markdown (Ctrl+E toggles)',
+                icon: const Icon(Icons.text_format),
+                label: compact ? null : const Text('WYSIWYG'),
+                tooltip: 'WYSIWYG: formatted markdown (Ctrl+E toggles)',
               ),
             ],
             selected: {_mode},
