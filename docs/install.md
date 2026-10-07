@@ -54,4 +54,10 @@ the release commit `vX.Y.Z`. Split APKs get the version code
 screenshots live in `fastlane/metadata/android/en-US/`. The details, and the
 traps, are in [AGENTS.md](../AGENTS.md).
 
+One-time setup for signed releases: `tool/setup_release.sh` creates the
+release keystore (`keys/quicknote-release.jks`, git-ignored; back it up) with a
+random password, writes `android/key.properties`, sets the four `ANDROID_*`
+signing secrets with `gh`, and moves the workflows into `.github/workflows/`.
+It is safe to run again.
+
 The logo is drawn by `tool/draw_logo.py`.
