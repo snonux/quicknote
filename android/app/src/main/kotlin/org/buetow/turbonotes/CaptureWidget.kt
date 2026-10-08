@@ -30,7 +30,7 @@ class CaptureWidget : AppWidgetProvider() {
         val note = try {
             DefaultNote(context).path
         } catch (e: IllegalArgumentException) {
-            "TurboNotes.md"
+            "TurboNote.md"
         }
         for (id in ids) {
             val views = RemoteViews(context.packageName, R.layout.capture_widget)

@@ -11,11 +11,19 @@ class MemoryNoteStore implements NoteStore {
   final Map<String, String> notes;
   final Map<String, Uint8List> files = {};
 
+  /// Makes [list] take this long, like a real folder, so a refresh spans
+  /// frames.
+  Duration? listDelay;
+
   @override
   String get label => '/notes';
 
   @override
-  Future<List<String>> list() async => notes.keys.toList()..sort();
+  Future<List<String>> list() async {
+    final delay = listDelay;
+    if (delay != null) await Future<void>.delayed(delay);
+    return notes.keys.toList()..sort();
+  }
 
   @override
   Future<String> read(String path) async {

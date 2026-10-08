@@ -21,9 +21,9 @@ import java.util.Locale
 internal class DefaultNote(private val context: Context) {
     private val prefs = context.getSharedPreferences("FlutterSharedPreferences", Context.MODE_PRIVATE)
 
-    /** The note's path relative to the notes folder, e.g. "TurboNotes.md". */
+    /** The note's path relative to the notes folder, e.g. "TurboNote.md". */
     val path: String =
-        prefs.getString("flutter.DefaultNote", null)?.takeIf { it.isNotEmpty() } ?: "TurboNotes.md"
+        prefs.getString("flutter.DefaultNote", null)?.takeIf { it.isNotEmpty() } ?: "TurboNote.md"
 
     private val treeUri: String? = prefs.getString("flutter.ScopedTreeUri", null)?.takeIf { it.isNotEmpty() }
 

@@ -20,6 +20,7 @@ Linux desktop build) the tree and the note sit side by side, as shown in
 - [Preferences](#preferences)
 - [Storage on Android](#storage-on-android)
 - [Keyboard shortcuts](#keyboard-shortcuts)
+- [Vi keys](#vi-keys)
 - [Why the WYSIWYG editor works the way it does](#why-the-wysiwyg-editor-works-the-way-it-does)
 
 ## The notes folder
@@ -86,12 +87,12 @@ into the ⋮ menu of the main screen:
 
 ## The default note
 
-The home button, or `Ctrl+D`, opens the default note, `TurboNotes.md` at the
+The home button, or `Ctrl+D`, opens the default note, `TurboNote.md` at the
 top of the notes folder. It is meant as a scratchpad for anything that needs
 writing down *now*: it opens with the cursor at the end, ready for typing.
 
 If the note does not exist yet, the home button creates it with a
-`# TurboNotes` heading. Pressing the button while the note is already open
+`# TurboNote` heading. Pressing the button while the note is already open
 puts the cursor back at its end.
 
 To use another note, change **Default note** in
@@ -350,7 +351,7 @@ Two ways to jot something down without opening TurboNotes. Both add to the
 
 **Home-screen widget.** Long-press the home screen, choose *Widgets* and add
 **Quick note**. Tap the widget's text and a small dialog opens over the home
-screen, titled *Add to TurboNotes.md*. Type, then tap **Add**: the text goes
+screen, titled *Add to TurboNote.md*. Type, then tap **Add**: the text goes
 to the end of the default note as a paragraph of its own, and the dialog
 closes. **Open app** opens the note in TurboNotes instead; the widget's icon
 does the same.
@@ -377,9 +378,11 @@ back to discard the changes.
   cannot write to the folder. A folder that does not exist yet is created.
 - **Default note**: the note the [home button](#the-default-note) opens,
   relative to the notes folder. The reset button sets it back to
-  `TurboNotes.md`.
+  `TurboNote.md`.
 - **Open notes in**: the editor notes open in. This also changes whenever you
   switch editors on a note.
+- **Vi keys in the editor** (Linux only): edit notes with vi's modal keys;
+  see [Vi keys](#vi-keys).
 
 On Android, Preferences also has **Choose folder with Android picker** and a
 menu of common folders; see below.
@@ -417,8 +420,117 @@ With a keyboard, on a tablet or the Linux desktop:
 | `Ctrl+E` | Switch between Raw and WYSIWYG |
 | `Ctrl+B` / `Ctrl+I` | Bold / italics |
 | `Ctrl+V` | Paste text, or an image when the clipboard holds no text |
-| In the finder and search: arrows, `Ctrl+N` / `Ctrl+P`, `Page Up` / `Page Down` | Move through the matches |
+| In the finder and search: arrows, `Ctrl+N` / `Ctrl+P`, `Ctrl+J` / `Ctrl+K`, `Page Up` / `Page Down` | Move through the matches |
 | In the finder and search: `Enter` / `Esc` | Open the note / close |
+| In the editor: `Esc` (with vi keys: `Ctrl+W h`) | Back to the sidebar; edits stay, unsaved until you save or leave the note |
+
+The sidebar also has [vi-style keys](#the-sidebar), always on.
+
+## Vi keys
+
+TurboNotes can be driven from the keyboard the way vi and Vim are: the
+sidebar always takes vi-style keys, and the editor takes vi's modal keys once
+you turn on **Vi keys in the editor** in [Preferences](#preferences). This
+needs a hardware keyboard, so the editor switch is only offered on Linux.
+
+![The Linux build with vi keys on: a word selected in visual mode, a count typed in the status line](images/linux-vi.png)
+
+### The sidebar
+
+Whenever no text field has the keyboard, the sidebar does. The first key you
+press shows its cursor, an outlined row.
+
+| Key | Action |
+|-----|--------|
+| `j` / `k` (or the arrows) | Next / previous row; `5j` moves five |
+| `gg` / `G` | First / last row |
+| `l` (or Right) | Open a folder, tag or section; on an open one, go to its first entry |
+| `h` (or Left) | Close a folder, tag or section; elsewhere, go to its parent |
+| `Enter`, `o`, `Space` | Open the note and move the keyboard into it; on a folder, open or close it |
+| `i`, `Ctrl+W l` | Into the open note's editor, the caret where it was |
+| `/` | [Fuzzy finder](#fuzzy-finder) |
+| `?` | [Full-text search](#full-text-search) |
+| `a` | New note, in the folder under the cursor |
+| `r` / `d` | Rename / delete the note under the cursor (delete still asks) |
+| `p` | Pin or unpin it |
+| `s` | Share it |
+| `m` | Its menu |
+| `R` | Refresh |
+| `W` | Collapse all folders |
+| `Esc` | Drop the tag filter |
+
+On a tag, `Enter` filters the tree by it and `l` opens its sub-tags.
+
+### The editor
+
+With **Vi keys in the editor** on, a note opens in *normal mode*: keys are
+commands and nothing you press types into the note. A status line under the
+note shows the mode (`-- NORMAL --`, `-- INSERT --`, `-- VISUAL --`) and the
+command typed so far. The cursor is a block on a character.
+
+Both the Raw and the WYSIWYG editor take these keys; they work on the
+Markdown source, so in WYSIWYG a hidden `**` still counts as two characters.
+
+Entering and leaving insert mode:
+
+| Key | Action |
+|-----|--------|
+| `i` / `a` | Insert before / after the cursor |
+| `I` / `A` | Insert at the start / end of the line |
+| `o` / `O` | Open a line below / above, with the same indent |
+| `Esc`, `Ctrl+[` | Back to normal mode |
+
+Moving (all take a count, like `3w`):
+
+| Key | Action |
+|-----|--------|
+| `h` `j` `k` `l` | Left, down, up, right |
+| `w` `b` `e`, `W` `B` `E` | Next word, previous word, end of word; capitals skip punctuation |
+| `0` `^` `$` | Start of line, first non-blank, end of line |
+| `gg`, `G`, `5G` | First line, last line, line 5 |
+| `{` `}` | Previous / next blank line |
+| `f`x `F`x `t`x `T`x, `;` `,` | To (or just before) the next or previous `x` on the line, and repeat |
+| `%` | The matching bracket |
+| `Enter`, `-` | First non-blank of the next / previous line |
+
+Editing:
+
+| Key | Action |
+|-----|--------|
+| `d`, `c`, `y` + a motion | Delete, change, copy: `dw`, `c$`, `y2j`, `dG` |
+| `dd`, `cc`, `yy` (`Y`) | The whole line; `3dd` three lines |
+| `D`, `C` | Delete / change to the end of the line |
+| `x`, `X`, `s`, `S` | Delete the character under / before the cursor; change it; change the line |
+| `iw` `aw`, `i"` `a"`, `i(` `a(`, `i[`, `i{`, `i<` | Text objects after an operator: `ciw`, `da"`, `di(` |
+| `p`, `P` | Put after / before (a whole line goes below / above) |
+| `r`x | Replace the character with `x` |
+| `J` | Join the next line onto this one |
+| `>>`, `<<` | Indent / outdent the line by two spaces, as nested lists need |
+| `~` | Switch the case |
+| `u`, `Ctrl+R` | Undo, redo; a whole command or insert counts as one step |
+
+Selecting: `v` selects characters, `V` whole lines; move to grow the
+selection, `o` jumps to its other end, and `iw` and the other text objects
+select those. Then `d` (or `x`), `c`, `y`, `>`, `<`, `J`, `~`, `u` (lower
+case) or `U` (upper case). A selection made with the mouse works the same.
+
+Searching and commands, typed in the status line (`Enter` runs, `Esc`
+cancels):
+
+| Key | Action |
+|-----|--------|
+| `/`text, `?`text | Search forward / backward, wrapping around |
+| `n`, `N` | Next match, in the same / other direction |
+| `*`, `#` | Search for the word under the cursor |
+| `:w` | Save |
+| `:q` | Leave the note: back to the sidebar (on a phone-sized window the note closes and saves) |
+| `:wq`, `:x` | Save, then leave |
+| `:42` | Go to line 42 |
+
+Search is plain text, not a regular expression, and ignores case unless the
+text has a capital letter. Text you copy with `y` also goes to the system
+clipboard. `Ctrl+S`, `Ctrl+V`, `Ctrl+E` and the other shortcuts above keep
+working in normal mode, and `Ctrl+W h` goes back to the sidebar.
 
 ## Why the WYSIWYG editor works the way it does
 

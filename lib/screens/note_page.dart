@@ -22,6 +22,7 @@ class NotePage extends StatefulWidget {
     this.pinned = false,
     this.onTogglePin,
     this.onShare,
+    this.viKeys = false,
   });
 
   final NoteStore store;
@@ -36,6 +37,9 @@ class NotePage extends StatefulWidget {
 
   /// Shares the note, given the text in the editor (unsaved edits too).
   final ValueChanged<String>? onShare;
+
+  /// Edit with vi's modal keys.
+  final bool viKeys;
 
   /// Called once unsaved edits are saved: renaming moves the file as it is
   /// on disk.
@@ -132,6 +136,9 @@ class _NotePageState extends State<NotePage> {
             onSaved: widget.onSaved,
             onModeChanged: widget.onModeChanged,
             onDirtyChanged: (d) => setState(() => _dirty = d),
+            viKeys: widget.viKeys,
+            // Esc, Ctrl+W h or :q go back to the sidebar, saving on the way.
+            onLeave: () => Navigator.of(context).maybePop(),
           ),
         ),
       ),

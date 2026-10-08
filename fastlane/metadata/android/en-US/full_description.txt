@@ -10,7 +10,7 @@ TurboNotes edits a folder of plain Markdown files. Point it at any folder, for e
 <li><b>Quick capture</b>: a home-screen widget and a share target add text or images to the default note without opening the app.</li>
 <li><b>Raw editor</b> for the Markdown source exactly as it is on disk.</li>
 <li><b>WYSIWYG editor</b> that shows headings, bold, italics, lists, tasks, quotes, links and code formatted as you type, with a formatting toolbar. It edits the same Markdown text, so switching editors never reformats a note.</li>
-<li><b>Default note</b> (TurboNotes.md, configurable) one tap away from the home button, ready for typing.</li>
+<li><b>Default note</b> (TurboNote.md, configurable) one tap away from the home button, ready for typing.</li>
 <li><b>Autosave</b> whenever you leave a note or the app. A note that changed on disk in the meantime is never overwritten silently.</li>
 <li>Create, rename, move and delete notes.</li>
 <li>Use the Android folder picker for a notes vault without broad storage permission, or type a path.</li>

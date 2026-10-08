@@ -71,6 +71,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String _defaultNote = kDefaultNotePath;
   List<String> _pinned = const [];
   List<String> _recent = const [];
+  bool _viKeys = false;
 
   /// Every note's text, for search and tags; null until first read.
   final ValueNotifier<NoteIndex?> _index = ValueNotifier(null);
@@ -94,13 +95,19 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   /// Holds focus for the screen's shortcuts when nothing inside has it.
   final FocusNode _rootFocus = FocusNode(debugLabel: 'home');
 
+  /// The sidebar's focus, for its vi keys; it has the keyboard whenever
+  /// nothing else does.
+  final FocusNode _treeFocus = FocusNode(debugLabel: 'tree');
+
   /// When the focused widget goes away (the editor of a deleted note, say),
   /// focus falls back to the route's scope, which sits above [_rootFocus],
   /// so Ctrl+P and friends would stop working until something is clicked.
   void _keepShortcutsReachable() {
     final primary = FocusManager.instance.primaryFocus;
-    if (primary is FocusScopeNode && _rootFocus.ancestors.contains(primary)) {
-      _rootFocus.requestFocus();
+    final fallback = _treeFocus.context != null ? _treeFocus : _rootFocus;
+    if ((primary is FocusScopeNode && _rootFocus.ancestors.contains(primary)) ||
+        (primary == _rootFocus && fallback == _treeFocus)) {
+      fallback.requestFocus();
     }
   }
 
@@ -117,6 +124,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     WidgetsBinding.instance.removeObserver(this);
     FocusManager.instance.removeListener(_keepShortcutsReachable);
     _rootFocus.dispose();
+    _treeFocus.dispose();
     _index.dispose();
     super.dispose();
   }
@@ -134,6 +142,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _defaultNote = await _prefs.defaultNote();
     _pinned = await _prefs.pinned();
     _recent = await _prefs.recent();
+    _viKeys = await _prefs.viKeys();
     await _reload(reopenStore: true);
   }
 
@@ -167,6 +176,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         if (_selected != null && !notes.contains(_selected)) _selected = null;
         _loading = false;
       });
+      // The tree is back; let it have the keyboard if nothing else does.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => _keepShortcutsReachable(),
+      );
       _buildIndex(_store!, notes);
     } catch (e) {
       if (!mounted) return;
@@ -212,7 +225,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   void _setTagFilter(String? tag) {
     // The chip's delete button had focus; without this the shortcuts would
     // stop working until something is clicked.
-    if (tag == null) _rootFocus.requestFocus();
+    if (tag == null && !_treeFocus.hasFocus) _treeFocus.requestFocus();
     setState(() {
       _tagFilter = tag;
       _tree = _buildTree();
@@ -274,10 +287,21 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _prefs.setEditorMode(mode);
   }
 
-  /// Opens [path]; with [match] (a search hit) that text is selected.
-  Future<void> _open(String path, {TextSelection? match}) async {
+  /// Opens [path]; with [match] (a search hit) that text is selected. With
+  /// [focus] (Enter in the tree) the editor takes the keyboard.
+  Future<void> _open(
+    String path, {
+    TextSelection? match,
+    bool focus = false,
+  }) async {
     final store = _store;
     if (store == null) return;
+    if (_twoPane && path == _selected && match == null && focus) {
+      _editorKey.currentState?.focus();
+      return;
+    }
+    // Opening with the keyboard puts the caret at the top, focused.
+    match ??= focus ? const TextSelection.collapsed(offset: 0) : null;
     _jumpOnOpen = match == null ? null : (path: path, match: match);
     _remember(path);
     setState(() {
@@ -308,6 +332,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           initialMode: _mode,
           autofocus: _focusOnOpen == path,
           initialSelection: match,
+          viKeys: _viKeys,
           onModeChanged: _setMode,
           onSaved: _onSaved,
           pinned: _isPinned(path),
@@ -334,7 +359,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ...recent,
       ..._notes.where((p) => !recent.contains(p)),
     ]);
-    if (path != null && mounted) await _open(path);
+    // Picked with the keyboard, so the keyboard goes on into the note.
+    if (path != null && mounted) await _open(path, focus: true);
   }
 
   Future<void> _searchText() async {
@@ -422,10 +448,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     );
   }
 
-  Future<void> _newNote() async {
+  /// Asks for a new note's path, starting in [folder] or the open note's.
+  Future<void> _newNote({String? folder}) async {
     final store = _store;
     if (store == null) return;
-    final folder = _currentFolder;
+    folder ??= _currentFolder;
     final path = await askNotePath(
       context,
       title: 'New note',
@@ -612,6 +639,44 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (mounted) showSnack(context, message, error: error);
   }
 
+  /// Puts the keyboard in the open note's editor.
+  void _focusEditor() => _editorKey.currentState?.focus();
+
+  /// The sidebar's keys beyond moving around; see [NoteTreeView.onKey].
+  bool _treeKey(String key, TreeTarget target) {
+    final note = target.note;
+    switch (key) {
+      case '/':
+        _findNote();
+      case '?':
+        _searchText();
+      case 'a':
+        _newNote(folder: target.folder);
+      case 'R':
+        _reload();
+      case 'i':
+      case '<C-w>l':
+        if (_twoPane && _selected != null) {
+          _focusEditor();
+        } else if (note != null) {
+          _open(note, focus: true);
+        }
+      case 'r' when note != null:
+        _rename(note);
+      case 'd' when note != null:
+        _delete(note);
+      case 'p' when note != null:
+        _togglePin(note);
+      case 's' when note != null:
+        _share(note);
+      case 'W':
+        setState(_expanded.clear);
+      default:
+        return false;
+    }
+    return true;
+  }
+
   void _onMenu(_MenuAction action) {
     final selected = _selected;
     switch (action) {
@@ -752,7 +817,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   }
 
   Widget _treePane() {
-    if (_loading) return const Center(child: CircularProgressIndicator());
+    // A refresh keeps showing the tree (and the keyboard cursor in it).
+    if (_loading && _notes.isEmpty) {
+      return const Center(child: CircularProgressIndicator());
+    }
     final error = _error;
     if (error != null) {
       return Center(
@@ -785,6 +853,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           if (!_expanded.remove(path)) _expanded.add(path);
         }),
         onOpen: _open,
+        onOpenFocused: (path) => _open(path, focus: true),
+        onKey: _treeKey,
+        focusNode: _treeFocus,
         onNoteMenu: _noteMenu,
         pinned: _existing(_pinned),
         recent: _existing(_recent),
@@ -814,7 +885,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         SizedBox(width: 300, child: _treePane()),
         const VerticalDivider(width: 1),
         Expanded(
-          child: _error != null || _loading
+          // A refresh keeps the open note: unmounting the editor would drop
+          // its unsaved edits and its caret.
+          child: _error != null || (_loading && selected == null)
               ? const SizedBox.shrink()
               : store == null || selected == null
               ? Center(
@@ -834,6 +907,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   initialSelection: _jumpOnOpen?.path == selected
                       ? _jumpOnOpen!.match
                       : null,
+                  viKeys: _viKeys,
+                  onLeave: _treeFocus.requestFocus,
                   onModeChanged: _setMode,
                   onSaved: _onSaved,
                   onDirtyChanged: (d) => setState(() => _editorDirty = d),

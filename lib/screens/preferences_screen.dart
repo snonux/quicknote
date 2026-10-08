@@ -32,6 +32,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   final TextEditingController _dirController = TextEditingController();
   final TextEditingController _defaultNoteController = TextEditingController();
   EditorMode _mode = EditorMode.raw;
+  bool _viKeys = false;
   bool _loaded = false;
   // Whether the typed directory is actually usable: writable, and on
   // Android 11+ not a shared folder still missing All files access.
@@ -82,6 +83,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
         ? null
         : ScopedFolder(folder.uri, folder.name);
     _mode = await _prefs.editorMode();
+    _viKeys = await _prefs.viKeys();
     _defaultNoteController.text = await _prefs.defaultNote();
     _androidStorageApiLevel = await StorageAccessService.storageApiLevel();
     await _checkAccess();
@@ -206,6 +208,7 @@ class _PreferencesScreenState extends State<PreferencesScreen>
       await _folderPicker.release(previous.uri);
     }
     await _prefs.setEditorMode(_mode);
+    await _prefs.setViKeys(_viKeys);
     await _prefs.setDefaultNote(defaultNote);
     if (mounted) Navigator.of(context).pop(true);
   }
@@ -371,6 +374,22 @@ class _PreferencesScreenState extends State<PreferencesScreen>
             'you used.',
             style: theme.textTheme.bodySmall,
           ),
+          // Vi's normal mode needs key presses, which an on-screen keyboard
+          // does not send.
+          if (!Platform.isAndroid) ...[
+            const SizedBox(height: 16),
+            SwitchListTile(
+              key: const ValueKey('prefs.vi-keys'),
+              contentPadding: EdgeInsets.zero,
+              title: const Text('Vi keys in the editor'),
+              subtitle: const Text(
+                'Notes open in normal mode: move with h j k l, edit with '
+                'd, c, y and p, press i to type and Esc to stop.',
+              ),
+              value: _viKeys,
+              onChanged: (v) => setState(() => _viKeys = v),
+            ),
+          ],
         ],
       ),
     );

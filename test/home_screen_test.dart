@@ -107,6 +107,23 @@ void main() {
     expect(find.text('Unsaved'), findsNothing);
   });
 
+  testWidgets('a refresh keeps unsaved edits in the open note', (tester) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), '# Inbox\nunsaved\n');
+    await tester.pump();
+    store.listDelay = const Duration(milliseconds: 100);
+    await tester.sendKeyEvent(LogicalKeyboardKey.f5);
+    await tester.pump(const Duration(milliseconds: 50));
+    await tester.pumpAndSettle();
+    expect(
+      tester.widget<TextField>(field()).controller!.text,
+      '# Inbox\nunsaved\n',
+    );
+    expect(find.text('Unsaved'), findsOneWidget);
+  });
+
   testWidgets('switching editors keeps the exact text', (tester) async {
     await pumpHome(tester);
     await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
@@ -200,17 +217,15 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the home button creates and opens TurboNotes.md', (
-    tester,
-  ) async {
+  testWidgets('the home button creates and opens TurboNote.md', (tester) async {
     await pumpHome(tester);
-    expect(find.byTooltip('Open TurboNotes.md (Ctrl+D)'), findsOneWidget);
+    expect(find.byTooltip('Open TurboNote.md (Ctrl+D)'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('default-note')));
     await tester.pumpAndSettle();
-    expect(store.notes['TurboNotes.md'], '# TurboNotes\n\n');
+    expect(store.notes['TurboNote.md'], '# TurboNote\n\n');
     expect(
       tester.widget<TextField>(field()).controller!.text,
-      '# TurboNotes\n\n',
+      '# TurboNote\n\n',
     );
 
     // Existing content is opened, never replaced.
@@ -251,7 +266,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.widget<TextField>(field()).controller!.text, 'today');
     expect(find.byKey(const ValueKey('note:journal/today.md')), findsOneWidget);
-    expect(store.notes.containsKey('TurboNotes.md'), isFalse);
+    expect(store.notes.containsKey('TurboNote.md'), isFalse);
   });
 
   testWidgets('a changed file on disk is not overwritten silently', (
@@ -287,6 +302,7 @@ void main() {
       tester.widget<TextField>(field()).controller!.text,
       '# Ideas\n\n- one\n',
     );
+    expect(tester.widget<TextField>(field()).focusNode!.hasFocus, isTrue);
     // The tree reveals the opened note.
     expect(
       find.byKey(const ValueKey('note:projects/quicknote/ideas.md')),
