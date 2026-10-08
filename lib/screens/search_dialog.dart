@@ -123,6 +123,11 @@ class _SearchDialogState extends State<SearchDialog> {
                 _move(1),
             const SingleActivator(LogicalKeyboardKey.keyP, control: true): () =>
                 _move(-1),
+            // Vi-style, as in fzf.
+            const SingleActivator(LogicalKeyboardKey.keyJ, control: true): () =>
+                _move(1),
+            const SingleActivator(LogicalKeyboardKey.keyK, control: true): () =>
+                _move(-1),
             const SingleActivator(LogicalKeyboardKey.pageDown): () => _move(6),
             const SingleActivator(LogicalKeyboardKey.pageUp): () => _move(-6),
           },

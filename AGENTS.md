@@ -33,6 +33,13 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   `strutStyle: StrutStyle.disabled`: the default forced strut keeps lines
   from growing around images. Decoded images live in `AttachmentCache`
   (`lib/widgets/note_image.dart`), which relayouts the editor once one loads.
+- `lib/editor/vi_engine.dart` -- vi's modal editing (Preferences: Vi keys,
+  Linux only, since normal mode needs key events an on-screen keyboard does
+  not send). A pure engine on the text controller, tested in
+  `test/vi_engine_test.dart`; `NoteEditor` feeds it keys from its
+  `FocusNode.onKeyEvent` and makes the field `readOnly` outside insert mode,
+  so a command key can never type. The sidebar's own vi keys live in
+  `NoteTreeView` and are always on.
 - `lib/services/fuzzy.dart` -- the fuzzy matcher behind the finder.
 - `lib/services/note_index.dart`, `text_search.dart`, `tags.dart` -- the
   in-memory text index of all notes behind full-text search (typo tolerant)
@@ -66,7 +73,8 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   `docs/usage.md` and `docs/install.md`, screenshots in `docs/images/`.
   Screenshots are phone shots only (`phone-*.png`, 400x760), plus tablet
   shots (`tablet-*.png`, 1280x800) only where the wide layout differs; no
-  desktop shots. Update the docs and shots when the UI changes.
+  desktop shots except `linux-vi.png` (1280x800), for the Linux-only vi
+  keys. Update the docs and shots when the UI changes.
 
 ## Releasing
 

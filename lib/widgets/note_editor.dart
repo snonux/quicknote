@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../editor/markdown_controller.dart';
+import '../editor/vi_engine.dart';
 import '../services/clipboard_image.dart';
 import '../services/note_store.dart';
 import '../services/note_tree.dart';
@@ -37,6 +38,8 @@ class NoteEditor extends StatefulWidget {
     this.onSaved,
     this.autofocus = false,
     this.initialSelection,
+    this.viKeys = false,
+    this.onLeave,
   });
 
   final NoteStore store;
@@ -56,13 +59,45 @@ class NoteEditor extends StatefulWidget {
   /// that was just created.
   final bool autofocus;
 
+  /// Edit with vi's modal keys (see [ViEngine]).
+  final bool viKeys;
+
+  /// Moves the keyboard away from the note: Ctrl+W h (or w, p), `:q`, and
+  /// Esc unless [viKeys] is on. Null keeps the keyboard here.
+  final VoidCallback? onLeave;
+
   @override
   State<NoteEditor> createState() => NoteEditorState();
 }
 
 class NoteEditorState extends State<NoteEditor> {
   final MarkdownEditingController _controller = MarkdownEditingController();
-  final FocusNode _focus = FocusNode();
+  late final FocusNode _focus = FocusNode(onKeyEvent: _onKey);
+  late final ViEngine _vi = ViEngine(
+    _controller,
+    onYank: (text) => Clipboard.setData(ClipboardData(text: text)),
+    onPrompt: _openPrompt,
+    onWrite: () => _writing = save(),
+    onQuit: _quit,
+  );
+
+  /// The save `:w` started, which `:wq` waits for before leaving.
+  Future<bool>? _writing;
+
+  Future<void> _quit() async {
+    final writing = _writing;
+    _writing = null;
+    if (writing != null && !await writing) return;
+    if (mounted) widget.onLeave?.call();
+  }
+
+  /// The line typed after `/`, `?` or `:` in vi's normal mode, while open.
+  ViPrompt? _prompt;
+  final TextEditingController _promptText = TextEditingController();
+  final FocusNode _promptFocus = FocusNode();
+
+  /// Ctrl+W was pressed; the next key picks where the keyboard goes.
+  bool _windowChord = false;
   final ScrollController _scroll = ScrollController();
   late EditorMode _mode = widget.initialMode;
   late AttachmentCache _images = _newCache();
@@ -105,6 +140,7 @@ class NoteEditorState extends State<NoteEditor> {
     _controller.imageBuilder = _inlineImage;
     _controller.addListener(_onChanged);
     _focus.addListener(_onFocus);
+    _vi.addListener(_onViChanged);
     _lifecycle; // Created lazily; touch it so it starts listening.
     _load();
   }
@@ -115,6 +151,10 @@ class NoteEditorState extends State<NoteEditor> {
     if (oldWidget.store != widget.store) {
       _images.dispose();
       _images = _newCache();
+    }
+    if (oldWidget.viKeys != widget.viKeys) {
+      _vi.reset();
+      _prompt = null;
     }
     if (oldWidget.path != widget.path || oldWidget.store != widget.store) {
       setState(() {
@@ -133,11 +173,119 @@ class NoteEditorState extends State<NoteEditor> {
     _controller.dispose();
     _focus.removeListener(_onFocus);
     _focus.dispose();
+    _vi.removeListener(_onViChanged);
+    _vi.dispose();
+    _promptText.dispose();
+    _promptFocus.dispose();
     _scroll.dispose();
     super.dispose();
   }
 
   void _onFocus() => _controller.focused = _focus.hasFocus;
+
+  void _onViChanged() {
+    if (mounted) setState(() {});
+  }
+
+  static final _modifierKeys = {
+    LogicalKeyboardKey.controlLeft,
+    LogicalKeyboardKey.controlRight,
+    LogicalKeyboardKey.shiftLeft,
+    LogicalKeyboardKey.shiftRight,
+    LogicalKeyboardKey.altLeft,
+    LogicalKeyboardKey.altRight,
+    LogicalKeyboardKey.metaLeft,
+    LogicalKeyboardKey.metaRight,
+  };
+
+  static final _leaveKeys = {
+    LogicalKeyboardKey.keyH,
+    LogicalKeyboardKey.keyW,
+    LogicalKeyboardKey.keyP,
+  };
+
+  /// Key presses reach this before the field: Ctrl+W chords, Esc, and in
+  /// vi mode every command key, so none of them types into the note.
+  KeyEventResult _onKey(FocusNode node, KeyEvent event) {
+    if (event is KeyUpEvent) return KeyEventResult.ignored;
+    final key = event.logicalKey;
+    final hw = HardwareKeyboard.instance;
+    if (_windowChord) {
+      if (_modifierKeys.contains(key)) return KeyEventResult.ignored;
+      _windowChord = false;
+      if (_leaveKeys.contains(key)) widget.onLeave?.call();
+      return KeyEventResult.handled;
+    }
+    if (key == LogicalKeyboardKey.keyW &&
+        hw.isControlPressed &&
+        !hw.isShiftPressed &&
+        !hw.isAltPressed &&
+        widget.onLeave != null) {
+      _windowChord = true;
+      return KeyEventResult.handled;
+    }
+    if (!widget.viKeys) {
+      if (key == LogicalKeyboardKey.escape &&
+          widget.onLeave != null &&
+          hw.logicalKeysPressed.length <= 1) {
+        widget.onLeave!();
+        return KeyEventResult.handled;
+      }
+      return KeyEventResult.ignored;
+    }
+    final name = _viKeyName(event);
+    if (name == null) return KeyEventResult.ignored;
+    return _vi.handle(name) ? KeyEventResult.handled : KeyEventResult.ignored;
+  }
+
+  /// The key as [ViEngine.handle] takes it, or null for keys vi leaves to
+  /// the field (arrows, Ctrl shortcuts, and everything typed in insert mode).
+  String? _viKeyName(KeyEvent event) {
+    final key = event.logicalKey;
+    final hw = HardwareKeyboard.instance;
+    if (key == LogicalKeyboardKey.escape) return '<Esc>';
+    if (hw.isControlPressed) {
+      if (key == LogicalKeyboardKey.bracketLeft) return '<Esc>';
+      if (key == LogicalKeyboardKey.keyR && !hw.isShiftPressed) return '<C-r>';
+      return null;
+    }
+    if (hw.isAltPressed || hw.isMetaPressed) return null;
+    if (_vi.mode == ViMode.insert) return null;
+    if (key == LogicalKeyboardKey.enter ||
+        key == LogicalKeyboardKey.numpadEnter) {
+      return '<CR>';
+    }
+    if (key == LogicalKeyboardKey.backspace) return '<BS>';
+    final c = event.character;
+    if (c == null || c.isEmpty || c.codeUnitAt(0) < 0x20) return null;
+    return c;
+  }
+
+  void _openPrompt(ViPrompt prompt) {
+    setState(() => _prompt = prompt);
+    _promptText.clear();
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _prompt != null) _promptFocus.requestFocus();
+    });
+  }
+
+  void _closePrompt() {
+    setState(() => _prompt = null);
+    _focus.requestFocus();
+  }
+
+  void _submitPrompt(String line) {
+    final prompt = _prompt;
+    _closePrompt();
+    switch (prompt) {
+      case ViPrompt.searchForward:
+      case ViPrompt.searchBackward:
+        _vi.search(line, forward: prompt == ViPrompt.searchForward);
+      case ViPrompt.command:
+        _vi.command(line);
+      case null:
+    }
+  }
 
   void _onChanged() {
     final d = dirty;
@@ -150,6 +298,8 @@ class NoteEditorState extends State<NoteEditor> {
 
   Future<void> _load() async {
     final path = widget.path;
+    _vi.reset();
+    _prompt = null;
     try {
       final text = await widget.store.read(path);
       if (!mounted || path != widget.path) return;
@@ -180,6 +330,12 @@ class NoteEditorState extends State<NoteEditor> {
         if (mounted) _focus.requestFocus();
       });
     }
+  }
+
+  /// Gives the field the keyboard, leaving the caret where it was.
+  void focus() {
+    if (_loading || _loadError != null) return;
+    _focus.requestFocus();
   }
 
   /// Puts the caret at the end of the note and focuses the field.
@@ -445,6 +601,7 @@ class NoteEditorState extends State<NoteEditor> {
     }
     final theme = Theme.of(context);
     final wysiwyg = _mode == EditorMode.wysiwyg;
+    final viCommands = widget.viKeys && _vi.mode != ViMode.insert;
     final base = wysiwyg
         ? theme.textTheme.bodyLarge!.copyWith(height: 1.45)
         : theme.textTheme.bodyMedium!.copyWith(
@@ -470,6 +627,14 @@ class NoteEditorState extends State<NoteEditor> {
               key: const ValueKey('note-editor-field'),
               controller: _controller,
               focusNode: _focus,
+              // Vi's normal and visual modes take keys as commands; nothing
+              // may type into the note meanwhile.
+              readOnly: viCommands,
+              showCursor: viCommands ? true : null,
+              cursorWidth: viCommands ? _blockWidth(base) : 2,
+              cursorColor: viCommands
+                  ? theme.colorScheme.primary.withValues(alpha: 0.45)
+                  : null,
               scrollController: _scroll,
               expands: true,
               maxLines: null,
@@ -497,7 +662,82 @@ class NoteEditorState extends State<NoteEditor> {
               ),
             ),
           ),
+          if (widget.viKeys) _viBar(theme, base),
         ],
+      ),
+    );
+  }
+
+  /// The width of vi's block cursor: one character of [style].
+  static double _blockWidth(TextStyle style) {
+    final painter = TextPainter(
+      text: TextSpan(text: 'n', style: style),
+      textDirection: TextDirection.ltr,
+    )..layout();
+    final width = painter.width;
+    painter.dispose();
+    return width;
+  }
+
+  /// Vi's status line: the mode and the command typed so far, or the line
+  /// typed after `/`, `?` or `:`.
+  Widget _viBar(ThemeData theme, TextStyle base) {
+    final style = theme.textTheme.labelMedium?.copyWith(
+      fontFamily: 'monospace',
+      fontFamilyFallback: const ['Noto Sans Mono', 'DejaVu Sans Mono'],
+    );
+    final prompt = _prompt;
+    final Widget content;
+    if (prompt != null) {
+      content = CallbackShortcuts(
+        bindings: {
+          const SingleActivator(LogicalKeyboardKey.escape): _closePrompt,
+        },
+        child: TextField(
+          key: const ValueKey('vi-prompt'),
+          controller: _promptText,
+          focusNode: _promptFocus,
+          style: style,
+          onSubmitted: _submitPrompt,
+          decoration: InputDecoration(
+            isDense: true,
+            border: InputBorder.none,
+            prefixText: prompt.prefix,
+            prefixStyle: style,
+          ),
+        ),
+      );
+    } else {
+      final insert = _vi.mode == ViMode.insert;
+      content = Row(
+        children: [
+          Text(
+            key: const ValueKey('vi-mode'),
+            '-- ${_vi.mode.label} --',
+            style: style?.copyWith(
+              fontWeight: FontWeight.w600,
+              color: insert
+                  ? theme.colorScheme.tertiary
+                  : theme.colorScheme.primary,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Text(
+              _vi.message ?? '',
+              style: style?.copyWith(color: theme.colorScheme.error),
+              overflow: TextOverflow.ellipsis,
+            ),
+          ),
+          Text(_vi.pending, key: const ValueKey('vi-pending'), style: style),
+        ],
+      );
+    }
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 4),
+        child: SizedBox(height: 22, child: Center(child: content)),
       ),
     );
   }

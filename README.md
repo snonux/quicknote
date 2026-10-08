@@ -21,6 +21,8 @@ notes; TurboNotes edits the ones you already have.
 - **Raw and WYSIWYG editors** on the same Markdown text. WYSIWYG never
   rewrites a note and shows **pasted images** inline.
 - **Share** a note to other apps as text, PDF or image.
+- **Vi keys** on the Linux desktop build: vi-style navigation in the
+  sidebar, and optional modal editing (normal, insert, visual) in the editor.
 - **Quick capture** from the home-screen widget or the Android share sheet,
   without opening the app.
 - **Autosave**, and a note changed on disk meanwhile is never overwritten

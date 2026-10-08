@@ -9,12 +9,13 @@ const _kEditorMode = 'EditorMode';
 const _kDefaultNote = 'DefaultNote';
 const _kPinned = 'PinnedNotes';
 const _kRecent = 'RecentNotes';
+const _kViKeys = 'ViKeys';
 
 /// How many recently opened notes are remembered.
 const kRecentLimit = 20;
 
 /// The note the home button opens unless Preferences names another.
-const kDefaultNotePath = 'TurboNotes.md';
+const kDefaultNotePath = 'TurboNote.md';
 
 /// Which editor a note opens in.
 enum EditorMode {
@@ -86,6 +87,17 @@ class PreferencesService {
   Future<void> setEditorMode(EditorMode mode) async {
     final prefs = await SharedPreferences.getInstance();
     await prefs.setString(_kEditorMode, mode.name);
+  }
+
+  /// Whether the editor uses vi's modal keys (normal, insert, visual).
+  Future<bool> viKeys() async {
+    final prefs = await SharedPreferences.getInstance();
+    return prefs.getBool(_kViKeys) ?? false;
+  }
+
+  Future<void> setViKeys(bool value) async {
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kViKeys, value);
   }
 
   /// The note the home button opens, relative to the notes folder.
