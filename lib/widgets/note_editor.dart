@@ -41,6 +41,7 @@ class NoteEditor extends StatefulWidget {
     this.initialSelection,
     this.viKeys = false,
     this.onLeave,
+    this.cachedText,
   });
 
   final NoteStore store;
@@ -66,6 +67,11 @@ class NoteEditor extends StatefulWidget {
   /// Moves the keyboard away from the note: Ctrl+W h (or w, p), `:q`, and
   /// Esc unless [viKeys] is on. Null keeps the keyboard here.
   final VoidCallback? onLeave;
+
+  /// The note's text as last seen (the search index holds every note), or
+  /// null. With it the note shows at once, without waiting for the disk;
+  /// the read that follows only brings in changes made meanwhile.
+  final String? Function(String path)? cachedText;
 
   @override
   State<NoteEditor> createState() => NoteEditorState();
@@ -305,29 +311,45 @@ class NoteEditorState extends State<NoteEditor> {
     final path = widget.path;
     _vi.reset();
     _prompt = null;
+    final cached = widget.cachedText?.call(path);
+    if (cached != null) {
+      // Show the cached text now and check the disk behind it. Edits made
+      // before that read returns are safe: [_original] stays the cached
+      // text, so saving over a note that differs on disk still asks first.
+      _show(path, cached);
+      unawaited(_refreshFromDisk());
+      return;
+    }
     try {
       final text = await widget.store.read(path);
       if (!mounted || path != widget.path) return;
-      _original = text;
-      _controller.value = TextEditingValue(
-        text: text,
-        selection: _clamp(
-          widget.initialSelection ??
-              TextSelection.collapsed(
-                offset: widget.autofocus ? text.length : 0,
-              ),
-          text.length,
-        ),
-      );
-      _loadError = null;
+      _show(path, text);
+      setState(() {});
       widget.onSaved?.call(path, text);
     } catch (e) {
       // Show the reason instead of an empty editor: saving an empty buffer
       // over a note that merely could not be read would destroy it.
       if (!mounted || path != widget.path) return;
       _loadError = e;
+      setState(() => _loading = false);
+      _onChanged();
     }
-    setState(() => _loading = false);
+  }
+
+  /// Puts [text], the note at [path], in the field as loaded.
+  void _show(String path, String text) {
+    _original = text;
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: _clamp(
+        widget.initialSelection ??
+            TextSelection.collapsed(offset: widget.autofocus ? text.length : 0),
+        text.length,
+      ),
+    );
+    _loadError = null;
+    // No setState: from initState or didUpdateWidget a build follows anyway.
+    _loading = false;
     _onChanged();
     if ((widget.autofocus || widget.initialSelection != null) &&
         _loadError == null) {

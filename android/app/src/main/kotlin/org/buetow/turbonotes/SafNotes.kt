@@ -9,6 +9,7 @@ import java.io.IOException
 import java.nio.ByteBuffer
 import java.nio.charset.CharacterCodingException
 import java.nio.charset.CodingErrorAction
+import java.util.concurrent.ConcurrentHashMap
 
 class NoteExistsException(message: String) : IOException(message)
 
@@ -35,6 +36,18 @@ internal fun decodeUtf8(bytes: ByteArray, path: String): String = try {
  */
 internal class SafNotes(private val resolver: ContentResolver) {
     private data class Doc(val id: String, val name: String, val isDir: Boolean)
+
+    /**
+     * Document ids of the files the last [list] of each tree found, by path.
+     * Finding a file otherwise lists every folder on its way, which on a
+     * folder with many notes is what makes opening one slow. Only reads use
+     * it, and a read that fails on a cached id walks the tree after all.
+     */
+    private val known = ConcurrentHashMap<String, Map<String, String>>()
+
+    private fun forget(raw: String, path: String) {
+        known.computeIfPresent(raw) { _, ids -> ids - path }
+    }
 
     private fun tree(raw: String, write: Boolean): Uri {
         val tree = Uri.parse(raw)
@@ -99,6 +112,7 @@ internal class SafNotes(private val resolver: ContentResolver) {
     fun list(raw: String): List<String> {
         val tree = tree(raw, write = false)
         val out = mutableListOf<String>()
+        val ids = HashMap<String, String>()
         val pending = ArrayDeque<Pair<String, String>>()
         pending.add(rootId(tree) to "")
         while (pending.isNotEmpty()) {
@@ -108,11 +122,13 @@ internal class SafNotes(private val resolver: ContentResolver) {
                 val rel = if (prefix.isEmpty()) child.name else "$prefix/${child.name}"
                 if (child.isDir) {
                     pending.add(child.id to rel)
-                } else if (isNote(child.name)) {
-                    out.add(rel)
+                } else {
+                    if (isNote(child.name)) out.add(rel)
+                    if (isNote(child.name) || isImage(child.name)) ids[rel] = child.id
                 }
             }
         }
+        known[raw] = ids
         out.sort()
         return out
     }
@@ -121,8 +137,19 @@ internal class SafNotes(private val resolver: ContentResolver) {
 
     private fun readRaw(raw: String, path: String): ByteArray {
         val tree = tree(raw, write = false)
-        val input = resolver.openInputStream(uri(tree, requireNote(tree, path)))
-            ?: throw IOException("Cannot read $path.")
+        segments(path)
+        known[raw]?.get(path)?.let { id ->
+            try {
+                return readDoc(DocumentsContract.buildDocumentUriUsingTree(tree, id), path)
+            } catch (_: FileNotFoundException) {
+                // Gone or moved since the listing: look it up again below.
+            }
+        }
+        return readDoc(uri(tree, requireNote(tree, path)), path)
+    }
+
+    private fun readDoc(uri: Uri, path: String): ByteArray {
+        val input = resolver.openInputStream(uri) ?: throw IOException("Cannot read $path.")
         return input.use { it.readBytes() }
     }
 
@@ -152,10 +179,7 @@ internal class SafNotes(private val resolver: ContentResolver) {
     /** Reads an image next to the notes (pasted or shared into a note). */
     fun readBytes(raw: String, path: String): ByteArray {
         if (!isImage(path)) throw IllegalArgumentException("Not an image: $path")
-        val tree = tree(raw, write = false)
-        val input = resolver.openInputStream(uri(tree, requireNote(tree, path)))
-            ?: throw IOException("Cannot read $path.")
-        return input.use { it.readBytes() }
+        return readRaw(raw, path)
     }
 
     /** Stores a new image next to the notes; never overwrites. */
@@ -208,6 +232,7 @@ internal class SafNotes(private val resolver: ContentResolver) {
 
     fun delete(raw: String, path: String) {
         val tree = tree(raw, write = true)
+        forget(raw, path)
         if (!DocumentsContract.deleteDocument(resolver, uri(tree, requireNote(tree, path)))) {
             throw IOException("Cannot delete $path.")
         }

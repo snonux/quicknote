@@ -1,0 +1,1 @@
+Notes open faster: a note shows at once from memory instead of waiting for the disk, folders picked with the Android picker find notes without listing every folder, and the note screen slides in quicker.
