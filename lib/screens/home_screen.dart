@@ -742,7 +742,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
               IconButton(
                 key: const ValueKey('default-note'),
                 tooltip: 'Open $_defaultNote (Ctrl+D)',
-                icon: const Icon(Icons.home_outlined),
+                icon: const Icon(Icons.electric_bolt),
                 onPressed: _store == null || _error != null
                     ? null
                     : _openDefaultNote,
