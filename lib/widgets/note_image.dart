@@ -3,6 +3,7 @@ import 'dart:ui' as ui;
 
 import 'package:flutter/material.dart';
 
+import '../services/image_decode.dart';
 import '../services/note_store.dart';
 
 /// Images read from a [NoteStore] and decoded, kept so the editor can
@@ -36,9 +37,7 @@ class AttachmentCache {
 
   Future<ui.Image> _decode(String path, Future<Uint8List> bytes) async {
     try {
-      final codec = await ui.instantiateImageCodec(await bytes);
-      final image = (await codec.getNextFrame()).image;
-      codec.dispose();
+      final image = await decodeImage(await bytes);
       if (_disposed) {
         image.dispose();
         throw StateError('closed');

@@ -89,9 +89,15 @@ class ShareService {
     return candidate;
   }
 
-  /// Opens [path] with the desktop's default app.
-  Future<void> open(String path) async {
-    await Process.run('xdg-open', [path]);
+  /// Opens [path] with the desktop's default app; false when there is none
+  /// (no `xdg-open`, or it failed).
+  Future<bool> open(String path) async {
+    try {
+      final result = await Process.run('xdg-open', [path]);
+      return result.exitCode == 0;
+    } on ProcessException {
+      return false;
+    }
   }
 }
 

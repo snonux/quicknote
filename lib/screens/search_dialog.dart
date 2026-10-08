@@ -15,20 +15,18 @@ typedef SearchTarget = ({String path, TextSelection match});
 /// and returns the chosen match, or null when dismissed.
 Future<SearchTarget?> showSearchDialog(
   BuildContext context,
-  ValueListenable<NoteIndex?> index, {
-  String initialQuery = '',
-}) {
+  ValueListenable<NoteIndex?> index,
+) {
   return showDialog<SearchTarget>(
     context: context,
-    builder: (_) => SearchDialog(index: index, initialQuery: initialQuery),
+    builder: (_) => SearchDialog(index: index),
   );
 }
 
 class SearchDialog extends StatefulWidget {
-  const SearchDialog({super.key, required this.index, this.initialQuery = ''});
+  const SearchDialog({super.key, required this.index});
 
   final ValueListenable<NoteIndex?> index;
-  final String initialQuery;
 
   @override
   State<SearchDialog> createState() => _SearchDialogState();
@@ -37,9 +35,7 @@ class SearchDialog extends StatefulWidget {
 class _SearchDialogState extends State<SearchDialog> {
   static const _rowHeight = 78.0;
 
-  late final TextEditingController _query = TextEditingController(
-    text: widget.initialQuery,
-  );
+  final TextEditingController _query = TextEditingController();
   final ScrollController _scroll = ScrollController();
   List<SearchHit> _hits = const [];
   int _index = 0;
@@ -90,7 +86,9 @@ class _SearchDialogState extends State<SearchDialog> {
   }
 
   void _choose([int? i]) {
-    if (_debounce?.isActive ?? false) {
+    // A tapped row is one on screen: open it as shown. Enter while the
+    // query is still settling opens the top hit of the query as typed.
+    if (i == null && (_debounce?.isActive ?? false)) {
       _debounce!.cancel();
       _search();
     }
@@ -254,7 +252,7 @@ class _SearchDialogState extends State<SearchDialog> {
     final fits = (width / 7).floor();
     final lead = (fits * 0.3).floor().clamp(8, 45);
     if (s.ranges.isNotEmpty && s.ranges.first.$1 - from > fits ~/ 2) {
-      from = s.ranges.first.$1 - lead;
+      from = (s.ranges.first.$1 - lead).clamp(0, line.length);
       cut = true;
     }
     final highlight = TextStyle(

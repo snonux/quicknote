@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 
 import '../editor/markdown_styler.dart';
+import 'image_decode.dart';
 import 'note_store.dart';
 
 /// A4 in PDF points.
@@ -124,9 +125,7 @@ class NoteExporter {
       if (images.containsKey(target)) continue;
       try {
         final bytes = await store.readBytes(target);
-        final codec = await ui.instantiateImageCodec(bytes);
-        images[target] = (await codec.getNextFrame()).image;
-        codec.dispose();
+        images[target] = await decodeImage(bytes);
       } catch (_) {
         // Left as its alt text.
       }
@@ -262,7 +261,8 @@ class NoteExporter {
     );
     final pipeline = PipelineOwner()..rootNode = renderView;
     renderView.prepareInitialFrame();
-    final buildOwner = BuildOwner(focusManager: FocusManager());
+    final focusManager = FocusManager();
+    final buildOwner = BuildOwner(focusManager: focusManager);
     final root = RenderObjectToWidgetAdapter<RenderBox>(
       container: boundary,
       child: MediaQuery(
@@ -292,6 +292,7 @@ class NoteExporter {
       buildOwner.finalizeTree();
       pipeline.rootNode = null;
       pipeline.dispose();
+      focusManager.dispose();
     }
   }
 }

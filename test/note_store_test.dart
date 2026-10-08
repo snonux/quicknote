@@ -148,6 +148,11 @@ void main() {
       attachmentPathFor('n.md', 'jpg', at).path,
       'attachments/n-20261007-180215.jpg',
     );
+    // A second image in the same second gets a suffix, as quick capture does.
+    expect(
+      attachmentPathFor('n.md', '.png', at, suffix: 1).link,
+      'attachments/n-20261007-180215-1.png',
+    );
   });
 
   group('NoteFolder', () {

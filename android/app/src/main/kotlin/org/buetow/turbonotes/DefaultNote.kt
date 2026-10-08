@@ -59,7 +59,7 @@ internal class DefaultNote(private val context: Context) {
             return
         }
         val file = file(path)
-        val existing = if (file.exists()) file.readText() else ""
+        val existing = if (file.exists()) decodeUtf8(file.readBytes(), path) else ""
         file.parentFile?.mkdirs()
         val temp = File(file.parentFile, ".${file.name}.${System.nanoTime()}.tmp")
         try {

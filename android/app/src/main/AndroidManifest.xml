@@ -40,6 +40,7 @@
             android:theme="@style/CaptureTheme"
             android:taskAffinity="org.buetow.turbonotes.capture"
             android:excludeFromRecents="true"
+            android:configChanges="orientation|screenSize|smallestScreenSize|screenLayout|keyboardHidden"
             android:windowSoftInputMode="stateVisible|adjustResize">
             <intent-filter>
                 <action android:name="org.buetow.turbonotes.CAPTURE"/>

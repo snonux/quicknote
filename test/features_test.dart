@@ -301,6 +301,7 @@ void main() {
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
     );
     await tester.pumpAndSettle();
-    expect(store.files, hasLength(anyOf(1, 2)));
+    // Even within the same second, the second image gets its own file.
+    expect(store.files, hasLength(2));
   });
 }

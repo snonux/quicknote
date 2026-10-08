@@ -90,6 +90,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   String? _focusOnOpen;
   final GlobalKey<NoteEditorState> _editorKey = GlobalKey();
 
+  /// A note is open on its own [NotePage]. Should the window widen
+  /// meanwhile, the two-pane editor stays away: two editors on one note
+  /// would each take the other's saves for changes on disk.
+  bool _notePageOpen = false;
+
   PreferencesService get _prefs => widget.preferences;
 
   /// Holds focus for the screen's shortcuts when nothing inside has it.
@@ -143,10 +148,15 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     _pinned = await _prefs.pinned();
     _recent = await _prefs.recent();
     _viKeys = await _prefs.viKeys();
-    await _reload(reopenStore: true);
+    if (mounted) await _reload(reopenStore: true);
   }
 
+  /// Counts reloads, so one that finishes after a newer one (a slow folder,
+  /// or a store swapped by Preferences) does not overwrite its result.
+  int _reloadGeneration = 0;
+
   Future<void> _reload({bool reopenStore = false}) async {
+    final generation = ++_reloadGeneration;
     setState(() {
       _loading = true;
       _error = null;
@@ -158,6 +168,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         _index.value = null;
         _tagFilter = null;
       }
+      if (generation != _reloadGeneration) return;
       final store = _store!;
       // Without All files access Android 11+ lists such a folder as empty.
       if (store is DirectoryNoteStore &&
@@ -169,7 +180,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         );
       }
       final notes = await store.list();
-      if (!mounted) return;
+      if (!mounted || generation != _reloadGeneration) return;
       setState(() {
         _notes = notes;
         _tree = _buildTree();
@@ -180,9 +191,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       WidgetsBinding.instance.addPostFrameCallback(
         (_) => _keepShortcutsReachable(),
       );
-      _buildIndex(_store!, notes);
+      _buildIndex(store, notes);
     } catch (e) {
-      if (!mounted) return;
+      if (!mounted || generation != _reloadGeneration) return;
       _indexGeneration++;
       _index.value = null;
       setState(() {
@@ -323,7 +334,10 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       });
       return;
     }
-    setState(() => _selected = path);
+    setState(() {
+      _selected = path;
+      _notePageOpen = true;
+    });
     await Navigator.of(context).push(
       MaterialPageRoute<void>(
         builder: (_) => NotePage(
@@ -343,6 +357,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         ),
       ),
     );
+    if (mounted) setState(() => _notePageOpen = false);
   }
 
   /// The folder new notes go into by default: that of the open note.
@@ -442,7 +457,11 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         duration: const Duration(seconds: 6),
         action: SnackBarAction(
           label: 'Open',
-          onPressed: () => widget.shareService.open(path),
+          onPressed: () async {
+            if (!await widget.shareService.open(path)) {
+              _snack('No app to open $path with', error: true);
+            }
+          },
         ),
       ),
     );
@@ -887,7 +906,8 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
         Expanded(
           // A refresh keeps the open note: unmounting the editor would drop
           // its unsaved edits and its caret.
-          child: _error != null || (_loading && selected == null)
+          child:
+              _error != null || _notePageOpen || (_loading && selected == null)
               ? const SizedBox.shrink()
               : store == null || selected == null
               ? Center(

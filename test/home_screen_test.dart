@@ -124,6 +124,30 @@ void main() {
     expect(find.text('Unsaved'), findsOneWidget);
   });
 
+  testWidgets('narrowing the window saves the open note', (tester) async {
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    await tester.enterText(field(), '# Inbox\nkept\n');
+    await tester.pump();
+
+    // Below two-pane width the editor goes away without a save path.
+    tester.view.physicalSize = const Size(400, 800);
+    await tester.pumpAndSettle();
+    expect(field(), findsNothing);
+    expect(store.notes['inbox.md'], '# Inbox\nkept\n');
+  });
+
+  testWidgets('a note page keeps the wide editor away', (tester) async {
+    await pumpHome(tester, size: const Size(400, 800));
+    await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
+    await tester.pumpAndSettle();
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pumpAndSettle();
+    // Only the note page's editor: two would fight over the same file.
+    expect(field(), findsOneWidget);
+  });
+
   testWidgets('switching editors keeps the exact text', (tester) async {
     await pumpHome(tester);
     await tester.tap(find.byKey(const ValueKey('note:inbox.md')));
