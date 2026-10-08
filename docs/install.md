@@ -46,5 +46,4 @@ targets on every push and pull request.
 
 ## Releases
 
-How to cut a release and publish it to F-Droid, including the one-time
-signing setup, is in [release.md](release.md).
+How to cut a release and publish it to F-Droid is in [release.md](release.md).

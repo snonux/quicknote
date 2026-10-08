@@ -11,39 +11,6 @@ git tag vX.Y.Z ──► Release workflow (this repo) ──► GitHub release w
              phones ◄── F-Droid index (snonux/fdroid) ◄───┘  every 6 h, or at once
 ```
 
-## Once: signing setup
-
-Do this before the first release only. Needs a JDK (`keytool`), `openssl`,
-`git` and the [GitHub CLI](https://cli.github.com) logged in (`gh auth login`).
-
-```sh
-tool/setup_release.sh
-```
-
-The script:
-
-1. creates the release keystore `keys/turbonotes-release.jks` with a random
-   password (git-ignored),
-2. writes `android/key.properties` for local release builds,
-3. sets the four signing secrets on GitHub: `ANDROID_KEYSTORE`,
-   `ANDROID_KEY_ALIAS`, `ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`.
-
-It is safe to run again; it keeps an existing keystore.
-
-**Back up `keys/turbonotes-release.jks` and `android/key.properties`**, for
-example in your password manager. The key is the app's identity: without it,
-existing installs can never be updated.
-
-Optional, so a release shows up in F-Droid at once instead of within six
-hours: create a fine-grained GitHub token with *Contents: read and write* on
-`snonux/fdroid` and store it as a secret here:
-
-```sh
-gh secret set FDROID_DISPATCH_TOKEN -R snonux/turbonotes
-```
-
-Check with `gh secret list -R snonux/turbonotes`.
-
 ## Every release
 
 1. **Bump the version** in `pubspec.yaml`. It is `<semver>+<counter>`; raise
@@ -88,8 +55,8 @@ Check with `gh secret list -R snonux/turbonotes`.
 - **"Tag vX does not match version Y in pubspec.yaml"**: the tag and the
   `version:` line differ. Delete the tag (`git push --delete origin vX`,
   `git tag -d vX`), fix one of them, and tag again.
-- **"The ANDROID_* signing secrets are not all set"**: run
-  `tool/setup_release.sh`, then rebuild the existing tag without re-tagging:
+- **The Release workflow failed for a reason outside the source** (a secret,
+  a flaky runner): fix it, then rebuild the existing tag without re-tagging:
   `gh workflow run release.yml -R snonux/turbonotes -f tag=v0.2.0`.
 - **Warning about a missing changelog**: the release still works, but F-Droid
   shows no "What's new". Add the files on `main`; they appear with the next
@@ -97,10 +64,6 @@ Check with `gh secret list -R snonux/turbonotes`.
 - **The release is not in F-Droid**: drafts and pre-releases are skipped, and
   only the newest two releases are kept. Check the latest run of the
   [publish workflow](https://github.com/snonux/fdroid/actions/workflows/publish.yml).
-- **F-Droid refuses the update** ("signature mismatch"): the APKs were signed
-  with a different key than the installed app. Restore the backed-up keystore
-  and run `tool/setup_release.sh` again; never generate a new key for an app
-  that is already released.
 
 The build traps (reproducible-build paths, the version-code block, the
 F-Droid scanner) are in [AGENTS.md](../AGENTS.md#releasing).
