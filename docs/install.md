@@ -46,16 +46,5 @@ targets on every push and pull request.
 
 ## Releases
 
-The version lives in one place, the `version:` line of `pubspec.yaml`
-(`<semver>+<buildNumber>`). Bump the build number by one per release and tag
-the release commit `vX.Y.Z`. Split APKs get the version code
-`buildNumber * 10 + abi`, so `0.1.0+1` ships as 11, 12 and 13. Store text and
-screenshots live in `fastlane/metadata/android/en-US/`. The details, and the
-traps, are in [AGENTS.md](../AGENTS.md).
-
-One-time setup for signed releases: `tool/setup_release.sh` creates the
-release keystore (`keys/turbonotes-release.jks`, git-ignored; back it up) with a
-random password, writes `android/key.properties` and sets the four
-`ANDROID_*` signing secrets with `gh`. It is safe to run again.
-
-The logo is drawn by `tool/draw_logo.py`.
+How to cut a release and publish it to F-Droid, including the one-time
+signing setup, is in [release.md](release.md).
