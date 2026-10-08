@@ -54,7 +54,9 @@ class CaptureActivity : Activity() {
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
             override fun afterTextChanged(s: Editable?) = updateAdd()
         })
-        if (savedInstanceState == null) readShare(intent)
+        // The text survives recreation in the field; the images are read
+        // from the intent again.
+        readShare(intent, withText = savedInstanceState == null)
         updateAdd()
         input.requestFocus()
     }
@@ -65,15 +67,17 @@ class CaptureActivity : Activity() {
     }
 
     /** Fills in what another app shared: text, and images to attach. */
-    private fun readShare(intent: Intent) {
+    private fun readShare(intent: Intent, withText: Boolean) {
         when (intent.action) {
             Intent.ACTION_SEND -> {
-                val text = listOfNotNull(
-                    intent.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { it.isNotBlank() },
-                    intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() },
-                ).distinct().joinToString("\n")
-                input.setText(text)
-                input.setSelection(input.text.length)
+                if (withText) {
+                    val text = listOfNotNull(
+                        intent.getStringExtra(Intent.EXTRA_SUBJECT)?.takeIf { it.isNotBlank() },
+                        intent.getCharSequenceExtra(Intent.EXTRA_TEXT)?.toString()?.takeIf { it.isNotBlank() },
+                    ).distinct().joinToString("\n")
+                    input.setText(text)
+                    input.setSelection(input.text.length)
+                }
                 streamExtra(intent)?.let { images = listOf(it) }
             }
             Intent.ACTION_SEND_MULTIPLE -> images = streamListExtra(intent)

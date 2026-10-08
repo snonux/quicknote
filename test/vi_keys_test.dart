@@ -196,6 +196,28 @@ void main() {
       expect(editorFocused(tester), isTrue);
     });
 
+    testWidgets('formatting shortcuts do not edit in normal mode', (
+      tester,
+    ) async {
+      await pumpHome(tester, vi: true);
+      await keys(tester, 'lj');
+      await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+      await tester.pumpAndSettle();
+      final controller = tester.widget<TextField>(field()).controller!;
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(controller.text, 'one two three\nfour\n');
+
+      await keys(tester, 'i');
+      await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+      await tester.sendKeyEvent(LogicalKeyboardKey.keyB);
+      await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+      await tester.pump();
+      expect(controller.text, '****one two three\nfour\n');
+    });
+
     testWidgets(':w saves, :q goes back to the tree', (tester) async {
       await pumpHome(tester, vi: true);
       await keys(tester, 'lj');

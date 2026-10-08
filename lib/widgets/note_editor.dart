@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
 import 'package:flutter/material.dart';
@@ -148,7 +149,8 @@ class NoteEditorState extends State<NoteEditor> {
   @override
   void didUpdateWidget(NoteEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.store != widget.store) {
+    // Another note's images would only take up memory.
+    if (oldWidget.store != widget.store || oldWidget.path != widget.path) {
       _images.dispose();
       _images = _newCache();
     }
@@ -167,6 +169,9 @@ class NoteEditorState extends State<NoteEditor> {
 
   @override
   void dispose() {
+    if (dirty) {
+      unawaited(_saveOnDispose(widget.store, widget.path, _controller.text));
+    }
     _lifecycle.dispose();
     _images.dispose();
     _controller.removeListener(_onChanged);
@@ -374,12 +379,7 @@ class NoteEditorState extends State<NoteEditor> {
       return;
     }
     _original = onDisk;
-    _controller.value = TextEditingValue(
-      text: onDisk,
-      selection: TextSelection.collapsed(
-        offset: _controller.selection.baseOffset.clamp(0, onDisk.length),
-      ),
-    );
+    _replaceText(onDisk);
     widget.onSaved?.call(path, onDisk);
   }
 
@@ -392,7 +392,9 @@ class NoteEditorState extends State<NoteEditor> {
   /// Pastes text as usual; with no text but an image on the clipboard, the
   /// image is stored next to the note and linked at the caret.
   Future<void> paste() async {
+    final path = widget.path;
     final data = await Clipboard.getData(Clipboard.kTextPlain);
+    if (!mounted || path != widget.path) return;
     final text = data?.text;
     if (text != null && text.isNotEmpty) {
       _controller.replaceSelection(text);
@@ -403,7 +405,15 @@ class NoteEditorState extends State<NoteEditor> {
 
   /// Inserts the clipboard's image, or says there is none.
   Future<void> pasteImage() async {
-    final image = await readClipboardImage();
+    final path = widget.path;
+    final ClipboardImageData? image;
+    try {
+      image = await readClipboardImage();
+    } catch (e) {
+      _snack('Could not paste the image: ${describeError(e)}', error: true);
+      return;
+    }
+    if (!mounted || path != widget.path) return;
     if (image == null) {
       _snack('The clipboard holds no image.');
       return;
@@ -414,15 +424,30 @@ class NoteEditorState extends State<NoteEditor> {
   /// Stores [bytes] as an image next to the note and links it at the caret.
   Future<void> insertImage(Uint8List bytes, String extension) async {
     if (_loading || _loadError != null) return;
-    final target = attachmentPathFor(widget.path, extension, DateTime.now());
-    try {
-      await widget.store.createBytes(target.path, bytes);
-    } catch (e) {
-      _snack('Could not store the image: ${describeError(e)}', error: true);
-      return;
+    final path = widget.path;
+    final store = widget.store;
+    final now = DateTime.now();
+    ({String path, String link}) target;
+    for (var n = 0; ; n++) {
+      target = attachmentPathFor(path, extension, now, suffix: n);
+      try {
+        await store.createBytes(target.path, bytes);
+        break;
+      } on NoteExistsException {
+        // Another image this second; try the next name.
+        if (n < 99) continue;
+        _snack('Could not store the image: too many this second', error: true);
+        return;
+      } catch (e) {
+        _snack('Could not store the image: ${describeError(e)}', error: true);
+        return;
+      }
     }
+    // The note was switched meanwhile: the image is stored, but its link
+    // belongs to a note no longer open here.
+    if (!mounted || path != widget.path || store != widget.store) return;
     await _images.put(target.path, bytes).catchError((_) {});
-    if (!mounted) return;
+    if (!mounted || path != widget.path) return;
     _controller.insertBlock('![](${target.link})');
     _focus.requestFocus();
   }
@@ -444,40 +469,55 @@ class NoteEditorState extends State<NoteEditor> {
     _focus.requestFocus();
   }
 
+  /// The save running now. Saves never overlap: the next one waits for it,
+  /// so leaving a note or closing the app never skips the edits.
+  Future<void>? _inFlight;
+
+  Future<T> _exclusive<T>(Future<T> Function() body) async {
+    while (_inFlight != null) {
+      await _inFlight;
+    }
+    final done = Completer<void>();
+    _inFlight = done.future;
+    try {
+      return await body();
+    } finally {
+      _inFlight = null;
+      done.complete();
+    }
+  }
+
   /// Saves; returns whether the note on disk now holds the field's text
   /// (after Reload in the conflict dialog it does: the field took the disk's).
   /// [announce] shows a "Saved" snackbar; automatic saves stay quiet.
-  Future<bool> save({bool announce = true}) async {
-    if (_saving || _loading || _loadError != null) return false;
+  Future<bool> save({bool announce = true}) =>
+      _exclusive(() => _save(announce: announce));
+
+  Future<bool> _save({required bool announce}) async {
+    if (!mounted || _loading || _loadError != null) return false;
     if (!dirty) return true;
-    setState(() => _saving = true);
+    final store = widget.store;
+    final path = widget.path;
     final text = _controller.text;
+    setState(() => _saving = true);
     try {
-      final onDisk = await widget.store.read(widget.path);
+      final onDisk = await store.read(path);
       if (onDisk != _original && onDisk != text) {
         if (!mounted) return false;
         final choice = await _confirmOverwrite();
+        if (!mounted) return false;
         if (choice != _Conflict.overwrite) {
-          if (!mounted) return false;
           setState(() => _saving = false);
           if (choice == _Conflict.reload) {
             _original = onDisk;
-            widget.onSaved?.call(widget.path, onDisk);
-            _controller.value = TextEditingValue(
-              text: onDisk,
-              selection: TextSelection.collapsed(
-                offset: _controller.selection.baseOffset.clamp(
-                  0,
-                  onDisk.length,
-                ),
-              ),
-            );
+            widget.onSaved?.call(path, onDisk);
+            _replaceText(onDisk);
             return true;
           }
           return false;
         }
       }
-      await widget.store.write(widget.path, text);
+      await store.write(path, text);
     } catch (e) {
       // Stay in the editor so nothing typed is lost.
       if (mounted) {
@@ -486,33 +526,29 @@ class NoteEditorState extends State<NoteEditor> {
       }
       return false;
     }
-    widget.onSaved?.call(widget.path, text);
-    if (!mounted) return true;
+    widget.onSaved?.call(path, text);
+    // Before the mounted check: a save that outlives the editor still tells
+    // the save in dispose() what is on disk now.
     _original = text;
+    if (!mounted) return true;
     setState(() => _saving = false);
     _onChanged();
-    if (announce) _snack('Saved ${widget.path}');
+    if (announce) _snack('Saved $path');
     return true;
   }
 
   /// Saves without asking anything, for when the app goes to the background
   /// or closes. A note changed on disk meanwhile is left alone; the edits go
   /// to a conflict copy and stay unsaved here, so Save can still settle it.
-  Future<void> _saveInBackground() async {
-    if (_saving || !dirty) return;
+  Future<void> _saveInBackground() => _exclusive(() async {
+    if (!mounted || !dirty) return;
+    final store = widget.store;
     final path = widget.path;
     final text = _controller.text;
     _saving = true;
     try {
-      final onDisk = await widget.store.read(path);
-      if (onDisk == _original || onDisk == text) {
-        await widget.store.write(path, text);
-        if (path == widget.path) _original = text;
-        widget.onSaved?.call(path, text);
-      } else if (_conflictCopyOf != text) {
-        final copy = conflictCopyPath(path, DateTime.now());
-        await widget.store.create(copy, text);
-        _conflictCopyOf = text;
+      final copy = await _writeQuietly(store, path, text);
+      if (copy != null) {
         _snack('$path changed on disk; your edits are saved as $copy');
       }
     } catch (e) {
@@ -524,6 +560,53 @@ class NoteEditorState extends State<NoteEditor> {
         _onChanged();
       }
     }
+  });
+
+  /// Writes [text] over the note if it still holds [_original], or to a
+  /// conflict copy if it changed on disk; returns the copy's path, if any.
+  Future<String?> _writeQuietly(
+    NoteStore store,
+    String path,
+    String text,
+  ) async {
+    final onDisk = await store.read(path);
+    if (onDisk == _original || onDisk == text) {
+      await store.write(path, text);
+      if (!mounted || path == widget.path) _original = text;
+      widget.onSaved?.call(path, text);
+      return null;
+    }
+    if (_conflictCopyOf == text) return null;
+    final copy = conflictCopyPath(path, DateTime.now());
+    await store.create(copy, text);
+    _conflictCopyOf = text;
+    return copy;
+  }
+
+  /// Saves edits still unsaved when the editor goes away without a save
+  /// (the window got too narrow for two panes, a reload lost the note), by
+  /// the background save's rules. Nobody is left to tell, so failures stay
+  /// quiet; a note that is gone was deleted on purpose.
+  Future<void> _saveOnDispose(NoteStore store, String path, String text) async {
+    while (_inFlight != null) {
+      await _inFlight;
+    }
+    if (text == _original) return;
+    try {
+      await _writeQuietly(store, path, text);
+    } catch (e) {
+      debugPrint('TurboNotes: unsaved edits to $path not written: $e');
+    }
+  }
+
+  /// Shows [text] in the field, keeping the caret where it was.
+  void _replaceText(String text) {
+    _controller.value = TextEditingValue(
+      text: text,
+      selection: TextSelection.collapsed(
+        offset: _controller.selection.baseOffset.clamp(0, text.length),
+      ),
+    );
   }
 
   /// Puts the field back to the text loaded from disk.
@@ -575,13 +658,22 @@ class NoteEditorState extends State<NoteEditor> {
     if (mounted) showSnack(context, message, error: error);
   }
 
+  /// Outside insert mode the field is read-only to vi's command keys, and
+  /// the editing shortcuts must not get around that.
+  bool get _canEdit => !widget.viKeys || _vi.mode == ViMode.insert;
+
+  void _ifEditable(VoidCallback edit) {
+    if (_canEdit) edit();
+  }
+
   Map<ShortcutActivator, VoidCallback> get _shortcuts => {
     const SingleActivator(LogicalKeyboardKey.keyS, control: true): save,
-    const SingleActivator(LogicalKeyboardKey.keyV, control: true): paste,
+    const SingleActivator(LogicalKeyboardKey.keyV, control: true): () =>
+        _ifEditable(paste),
     const SingleActivator(LogicalKeyboardKey.keyB, control: true): () =>
-        _controller.toggleWrap('**'),
+        _ifEditable(() => _controller.toggleWrap('**')),
     const SingleActivator(LogicalKeyboardKey.keyI, control: true): () =>
-        _controller.toggleWrap('*'),
+        _ifEditable(() => _controller.toggleWrap('*')),
     const SingleActivator(LogicalKeyboardKey.keyE, control: true): () =>
         setMode(_mode == EditorMode.raw ? EditorMode.wysiwyg : EditorMode.raw),
   };

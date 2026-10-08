@@ -14,7 +14,8 @@ String? imageExtensionFor(String mime) => switch (mime.toLowerCase()) {
   _ => null,
 };
 
-/// The image on the clipboard, or null when it holds none. Flutter's own
+/// The image on the clipboard, or null when it holds none; throws a
+/// [PlatformException] when it holds one that cannot be read (too large). Flutter's own
 /// clipboard API is text-only, so the platform runner reads it (GTK on Linux,
 /// ClipboardManager on Android).
 Future<ClipboardImageData?> readClipboardImage() async {
@@ -25,8 +26,6 @@ Future<ClipboardImageData?> readClipboardImage() async {
     if (bytes is! Uint8List || bytes.isEmpty || ext == null) return null;
     return (bytes: bytes, extension: ext);
   } on MissingPluginException {
-    return null;
-  } on PlatformException {
     return null;
   }
 }

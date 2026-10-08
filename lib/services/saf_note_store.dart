@@ -26,12 +26,17 @@ class SafNoteStore implements NoteStore {
         ...?args,
       });
     } on PlatformException catch (e) {
-      final path = (args?['path'] ?? args?['to'] ?? '') as String;
+      // For a rename, what is missing is the source; what exists, the target.
+      String path(String renameKey) =>
+          (args?['path'] ?? args?[renameKey] ?? '') as String;
       switch (e.code) {
         case 'not_found':
-          throw PathNotFoundException(path, OSError(e.message ?? 'Not found'));
+          throw PathNotFoundException(
+            path('from'),
+            OSError(e.message ?? 'Not found'),
+          );
         case 'exists':
-          throw NoteExistsException(path);
+          throw NoteExistsException(path('to'));
       }
       rethrow;
     }

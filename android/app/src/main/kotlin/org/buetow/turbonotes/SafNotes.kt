@@ -6,8 +6,26 @@ import android.provider.DocumentsContract
 import android.provider.DocumentsContract.Document
 import java.io.FileNotFoundException
 import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.CharacterCodingException
+import java.nio.charset.CodingErrorAction
 
 class NoteExistsException(message: String) : IOException(message)
+
+/**
+ * [bytes] as UTF-8, or an error for anything else, like Dart's
+ * readAsString. A lenient decoder would swap bad bytes for U+FFFD, and the
+ * next save would write that over the note.
+ */
+internal fun decodeUtf8(bytes: ByteArray, path: String): String = try {
+    Charsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes))
+        .toString()
+} catch (e: CharacterCodingException) {
+    throw IOException("$path is not UTF-8 text.")
+}
 
 /**
  * Markdown notes inside a document tree the user picked, addressed by
@@ -99,11 +117,13 @@ internal class SafNotes(private val resolver: ContentResolver) {
         return out
     }
 
-    fun read(raw: String, path: String): String {
+    fun read(raw: String, path: String): String = decodeUtf8(readRaw(raw, path), path)
+
+    private fun readRaw(raw: String, path: String): ByteArray {
         val tree = tree(raw, write = false)
         val input = resolver.openInputStream(uri(tree, requireNote(tree, path)))
             ?: throw IOException("Cannot read $path.")
-        return input.bufferedReader(Charsets.UTF_8).use { it.readText() }
+        return input.use { it.readBytes() }
     }
 
     fun write(raw: String, path: String, text: String) {
@@ -111,17 +131,22 @@ internal class SafNotes(private val resolver: ContentResolver) {
         writeDoc(uri(tree, requireNote(tree, path)), text)
     }
 
-    private fun writeDoc(uri: Uri, text: String) {
+    private fun writeDoc(uri: Uri, text: String) = writeBytes(uri, text.toByteArray(Charsets.UTF_8))
+
+    private fun writeBytes(uri: Uri, bytes: ByteArray) {
         // "wt" truncates. Plain "w" does not truncate on every provider, which
-        // would leave the tail of a longer old note behind a shorter new one.
+        // would leave the tail of a longer old file behind a shorter new one.
         val output = resolver.openOutputStream(uri, "wt")
-            ?: throw IOException("Cannot write the note.")
-        output.use { it.write(text.toByteArray(Charsets.UTF_8)) }
+            ?: throw IOException("Cannot write the file.")
+        output.use { it.write(bytes) }
     }
 
-    fun create(raw: String, path: String, text: String) {
+    fun create(raw: String, path: String, text: String) =
+        createNote(raw, path, text.toByteArray(Charsets.UTF_8))
+
+    private fun createNote(raw: String, path: String, bytes: ByteArray) {
         if (!isNote(path)) throw IllegalArgumentException("Notes must end in .md or .markdown.")
-        createDocument(raw, path) { writeDoc(it, text) }
+        createDocument(raw, path) { writeBytes(it, bytes) }
     }
 
     /** Reads an image next to the notes (pasted or shared into a note). */
@@ -136,10 +161,7 @@ internal class SafNotes(private val resolver: ContentResolver) {
     /** Stores a new image next to the notes; never overwrites. */
     fun createBytes(raw: String, path: String, bytes: ByteArray) {
         if (!isImage(path)) throw IllegalArgumentException("Not an image: $path")
-        createDocument(raw, path) { uri ->
-            val output = resolver.openOutputStream(uri, "wt") ?: throw IOException("Cannot write $path.")
-            output.use { it.write(bytes) }
-        }
+        createDocument(raw, path) { writeBytes(it, bytes) }
     }
 
     /**
@@ -194,12 +216,21 @@ internal class SafNotes(private val resolver: ContentResolver) {
     /**
      * Copy, then delete. Providers differ in whether they support rename and
      * move at all, while create/write/delete work everywhere notes can be
-     * edited. The target is written completely before the source goes.
+     * edited. The target is written completely, byte for byte, before the
+     * source goes; if the source cannot go, the copy goes instead.
      */
     fun rename(raw: String, from: String, to: String) {
-        val text = read(raw, from)
-        create(raw, to, text)
-        delete(raw, from)
+        createNote(raw, to, readRaw(raw, from))
+        try {
+            delete(raw, from)
+        } catch (e: Exception) {
+            try {
+                delete(raw, to)
+            } catch (_: Exception) {
+                // Two copies are better than none; report the first failure.
+            }
+            throw e
+        }
     }
 
     private fun displayName(uri: Uri): String {

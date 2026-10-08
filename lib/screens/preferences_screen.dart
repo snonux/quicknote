@@ -77,15 +77,22 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   }
 
   Future<void> _load() async {
-    _dirController.text = await _prefs.directory();
+    final directory = await _prefs.directory();
     final folder = await _prefs.scopedFolder();
+    final mode = await _prefs.editorMode();
+    final viKeys = await _prefs.viKeys();
+    final defaultNote = await _prefs.defaultNote();
+    final apiLevel = await StorageAccessService.storageApiLevel();
+    // Closed while loading: the controllers are gone.
+    if (!mounted) return;
+    _dirController.text = directory;
     _scopedFolder = folder == null
         ? null
         : ScopedFolder(folder.uri, folder.name);
-    _mode = await _prefs.editorMode();
-    _viKeys = await _prefs.viKeys();
-    _defaultNoteController.text = await _prefs.defaultNote();
-    _androidStorageApiLevel = await StorageAccessService.storageApiLevel();
+    _mode = mode;
+    _viKeys = viKeys;
+    _defaultNoteController.text = defaultNote;
+    _androidStorageApiLevel = apiLevel;
     await _checkAccess();
     if (!mounted) return;
     setState(() => _loaded = true);
@@ -157,7 +164,9 @@ class _PreferencesScreenState extends State<PreferencesScreen>
   }
 
   Future<void> _resetToDefault() async {
-    _dirController.text = await defaultNotesDirectory();
+    final directory = await defaultNotesDirectory();
+    if (!mounted) return;
+    _dirController.text = directory;
     setState(() => _scopedFolder = null);
     await _checkAccess();
   }
@@ -341,8 +350,8 @@ class _PreferencesScreenState extends State<PreferencesScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'The home button (Ctrl+D) opens this note, relative to the notes '
-            'folder, and creates it if it does not exist yet.',
+            'The lightning bolt button (Ctrl+D) opens this note, relative '
+            'to the notes folder, and creates it if it does not exist yet.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 24),

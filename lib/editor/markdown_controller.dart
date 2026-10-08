@@ -107,6 +107,11 @@ class MarkdownEditingController extends TextEditingController {
     );
   }
 
+  static final _orderedMarker = RegExp(r'^\d{1,9}[.)]\s+$');
+  static final _taskMarker = RegExp(r'^[-*+]\s+\[');
+  static final _bulletMarker = RegExp(r'^[-*+]$');
+  static final _leadingDigit = RegExp(r'^\d');
+  static final _taskLine = RegExp(r'^(\s*[-*+]\s+\[)([ xX])(\]\s)');
   static final _blockPrefix = RegExp(
     r'^(\s*)(#{1,6}\s+|>\s?|[-*+]\s+\[[ xX]\]\s|[-*+]\s+|\d{1,9}[.)]\s+)?',
   );
@@ -148,7 +153,7 @@ class MarkdownEditingController extends TextEditingController {
     final current = _blockPrefix.firstMatch(firstLine)!.group(2) ?? '';
     final numbered = prefix == '1. ';
     final same = numbered
-        ? RegExp(r'^\d{1,9}[.)]\s+$').hasMatch(current)
+        ? _orderedMarker.hasMatch(current)
         : _kindOf(current) == _kindOf(prefix);
     _editLines((line, i) {
       final m = _blockPrefix.firstMatch(line)!;
@@ -164,9 +169,9 @@ class MarkdownEditingController extends TextEditingController {
     final p = prefix.trim();
     if (p.startsWith('#')) return p; // heading level matters
     if (p.startsWith('>')) return '>';
-    if (RegExp(r'^[-*+]\s+\[').hasMatch(p)) return 'task';
-    if (RegExp(r'^[-*+]$').hasMatch(p)) return 'bullet';
-    if (RegExp(r'^\d').hasMatch(p)) return 'ordered';
+    if (_taskMarker.hasMatch(p)) return 'task';
+    if (_bulletMarker.hasMatch(p)) return 'bullet';
+    if (_leadingDigit.hasMatch(p)) return 'ordered';
     return '';
   }
 
@@ -177,7 +182,7 @@ class MarkdownEditingController extends TextEditingController {
   void toggleTask() {
     final (start, end) = _lineBounds(_safeSelection.start);
     final line = text.substring(start, end);
-    final m = RegExp(r'^(\s*[-*+]\s+\[)([ xX])(\]\s)').firstMatch(line);
+    final m = _taskLine.firstMatch(line);
     if (m == null) {
       toggleLinePrefix('- [ ] ');
       return;
@@ -236,6 +241,7 @@ class MarkdownEditingController extends TextEditingController {
 /// item starts with the same marker (numbers count up, tasks start open),
 /// and Enter on an empty item ends the list instead.
 class ListContinuationFormatter extends TextInputFormatter {
+  static final _tickedBox = RegExp(r'\[[xX]\]');
   static final _item = RegExp(
     r'^(\s*)([-*+]\s+\[[ xX]\]\s|[-*+]\s+|(\d{1,9})([.)])\s+|>\s?)',
   );
@@ -275,7 +281,7 @@ class ListContinuationFormatter extends TextInputFormatter {
         '${int.parse(m.group(3)!) + 1}',
       );
     } else {
-      marker = marker.replaceFirst(RegExp(r'\[[xX]\]'), '[ ]');
+      marker = marker.replaceFirst(_tickedBox, '[ ]');
     }
     final insert = '${m.group(1)}$marker';
     return TextEditingValue(

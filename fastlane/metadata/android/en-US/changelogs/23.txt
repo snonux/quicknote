@@ -1,0 +1,1 @@
+Fixes from a code-quality pass: unsaved edits are no longer lost when the window narrows, a reload loses the note or the app closes during a save; images pasted in the same second no longer fail; big photos use far less memory; notes with invalid UTF-8 are no longer silently rewritten; quick capture keeps shared images on rotation. The default note button is now a lightning bolt.
