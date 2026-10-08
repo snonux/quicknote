@@ -78,39 +78,19 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
 
 ## Releasing
 
-Same scheme as Quicklog. The traps:
+The steps for a new release are in [docs/release.md](docs/release.md). What
+must not break in the build:
 
-**Bump the build number.** `version:` in `pubspec.yaml` is `<semver>+<counter>`.
-
-**The per-ABI version code scheme is `counter * 10 + abi`** (1 armeabi-v7a,
-2 arm64-v8a, 3 x86_64), set by the `applicationVariants` block at the bottom of
-`android/app/build.gradle.kts`. Do not drop that block.
-
-**Write the changelog three times**, as `n1.txt`, `n2.txt`, `n3.txt` under
-`fastlane/metadata/android/en-US/changelogs/` for counter `n`.
-
-**Never remove the `dependenciesInfo` block from `android/app/build.gradle.kts`**:
-F-Droid's scanner rejects the Google Play dependency-metadata signing block.
-
-**Release builds are path-sensitive** if they are ever to be reproducible on
-F-Droid: build from `/tmp/build` against an SDK at `/opt/android-sdk`
-(`flutter config --android-sdk`), as `.github/workflows/release.yml` does.
-
-**Pushing a `vX.Y.Z` tag** runs `.github/workflows/release.yml`, which builds
-the signed per-ABI APKs and attaches them to the GitHub release. It needs the
-secrets `ANDROID_KEYSTORE` (base64 of the keystore), `ANDROID_KEY_ALIAS`,
-`ANDROID_KEYSTORE_PASSWORD` and `ANDROID_KEY_PASSWORD`;
-`FDROID_DISPATCH_TOKEN` is optional. TurboNotes needs its **own** keystore
-(`keys/turbonotes-release.jks`, git-ignored): it is the app's identity, and
-losing it means existing installs can never be updated.
-
-## Signing
-
-`android/key.properties` is git-ignored and optional. When present all four of
-`storeFile`, `storePassword`, `keyAlias`, `keyPassword` are required and the
-build fails loudly if any are missing; a relative `storeFile` resolves against
-`android/app/`. Without it, release builds fall back to the debug keys and say
-so.
+- The `applicationVariants` block at the bottom of
+  `android/app/build.gradle.kts` sets the per-ABI version codes,
+  `counter * 10 + abi` (1 armeabi-v7a, 2 arm64-v8a, 3 x86_64). Do not drop it.
+- Never remove the `dependenciesInfo` block from that file: F-Droid's scanner
+  rejects the Google Play dependency-metadata signing block.
+- Release builds are path-sensitive if they are ever to be reproducible on
+  F-Droid: build from `/tmp/build` against an SDK at `/opt/android-sdk`, as
+  `.github/workflows/release.yml` does.
+- Without the git-ignored `android/key.properties`, a local release build
+  falls back to the debug keys and says so.
 
 ## Testing gotchas
 
