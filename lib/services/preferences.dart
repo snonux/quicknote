@@ -14,7 +14,7 @@ const _kViKeys = 'ViKeys';
 /// How many recently opened notes are remembered.
 const kRecentLimit = 20;
 
-/// The note the home button opens unless Preferences names another.
+/// The note the lightning bolt button opens unless Preferences names another.
 const kDefaultNotePath = 'TurboNote.md';
 
 /// Which editor a note opens in.
@@ -100,7 +100,7 @@ class PreferencesService {
     await prefs.setBool(_kViKeys, value);
   }
 
-  /// The note the home button opens, relative to the notes folder.
+  /// The note the lightning bolt button opens, relative to the notes folder.
   Future<String> defaultNote() async {
     final prefs = await SharedPreferences.getInstance();
     final stored = prefs.getString(_kDefaultNote);

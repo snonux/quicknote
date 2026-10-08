@@ -722,7 +722,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
   Widget build(BuildContext context) {
     final twoPane = _twoPane;
     final title = _selected != null && twoPane
-        ? '${displayName(_selected!)}${_editorDirty ? ' •' : ''}'
+        // Asks the editor too: one that went away (the window narrowed)
+        // never reports that it is no longer dirty.
+        ? '${displayName(_selected!)}${_editorDirty && (_editorKey.currentState?.dirty ?? false) ? ' •' : ''}'
         : 'TurboNotes';
     return CallbackShortcuts(
       bindings: {
@@ -931,7 +933,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   onLeave: _treeFocus.requestFocus,
                   onModeChanged: _setMode,
                   onSaved: _onSaved,
-                  onDirtyChanged: (d) => setState(() => _editorDirty = d),
+                  onDirtyChanged: (d) {
+                    if (mounted) setState(() => _editorDirty = d);
+                  },
                 ),
         ),
       ],

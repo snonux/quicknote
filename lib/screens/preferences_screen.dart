@@ -350,8 +350,8 @@ class _PreferencesScreenState extends State<PreferencesScreen>
           ),
           const SizedBox(height: 8),
           Text(
-            'The home button (Ctrl+D) opens this note, relative to the notes '
-            'folder, and creates it if it does not exist yet.',
+            'The lightning bolt button (Ctrl+D) opens this note, relative '
+            'to the notes folder, and creates it if it does not exist yet.',
             style: theme.textTheme.bodySmall,
           ),
           const SizedBox(height: 24),

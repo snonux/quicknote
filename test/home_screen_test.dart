@@ -136,6 +136,12 @@ void main() {
     await tester.pumpAndSettle();
     expect(field(), findsNothing);
     expect(store.notes['inbox.md'], '# Inbox\nkept\n');
+
+    // Back to two panes, the note is no longer marked unsaved.
+    tester.view.physicalSize = const Size(1200, 800);
+    await tester.pumpAndSettle();
+    expect(find.text('Unsaved'), findsNothing);
+    expect(find.text('inbox •'), findsNothing);
   });
 
   testWidgets('a note page keeps the wide editor away', (tester) async {
@@ -241,7 +247,9 @@ void main() {
     await tester.pumpAndSettle();
   });
 
-  testWidgets('the home button creates and opens TurboNote.md', (tester) async {
+  testWidgets('the lightning bolt button creates and opens TurboNote.md', (
+    tester,
+  ) async {
     await pumpHome(tester);
     expect(find.byTooltip('Open TurboNote.md (Ctrl+D)'), findsOneWidget);
     await tester.tap(find.byKey(const ValueKey('default-note')));
