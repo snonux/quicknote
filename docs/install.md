@@ -7,7 +7,7 @@ an APK by hand, the Linux desktop build, and building from source.
 
 ## An APK by hand
 
-Every [GitHub release](https://github.com/snonux/quicknote/releases) has
+Every [GitHub release](https://github.com/snonux/turbonotes/releases) has
 signed APKs, one per CPU type. Most phones want `app-arm64-v8a-release.apk`.
 Download it on the phone and open it, or install it from a computer:
 

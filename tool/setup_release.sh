@@ -16,7 +16,7 @@
 # Needs keytool (any JDK), openssl, git and gh (logged in, `gh auth login`).
 set -euo pipefail
 
-repo=snonux/quicknote
+repo=snonux/turbonotes
 alias=turbonotes
 root=$(git rev-parse --show-toplevel)
 cd "$root"

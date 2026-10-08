@@ -39,10 +39,10 @@ hours: create a fine-grained GitHub token with *Contents: read and write* on
 `snonux/fdroid` and store it as a secret here:
 
 ```sh
-gh secret set FDROID_DISPATCH_TOKEN -R snonux/quicknote
+gh secret set FDROID_DISPATCH_TOKEN -R snonux/turbonotes
 ```
 
-Check with `gh secret list -R snonux/quicknote`.
+Check with `gh secret list -R snonux/turbonotes`.
 
 ## Every release
 
@@ -90,7 +90,7 @@ Check with `gh secret list -R snonux/quicknote`.
   `git tag -d vX`), fix one of them, and tag again.
 - **"The ANDROID_* signing secrets are not all set"**: run
   `tool/setup_release.sh`, then rebuild the existing tag without re-tagging:
-  `gh workflow run release.yml -R snonux/quicknote -f tag=v0.2.0`.
+  `gh workflow run release.yml -R snonux/turbonotes -f tag=v0.2.0`.
 - **Warning about a missing changelog**: the release still works, but F-Droid
   shows no "What's new". Add the files on `main`; they appear with the next
   release.
