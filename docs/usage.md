@@ -67,7 +67,7 @@ buttons on the right are, from left to right:
 
 | Button | What it does |
 |--------|--------------|
-| Home | Opens the [default note](#the-default-note) (`Ctrl+D`) |
+| Lightning bolt | Opens the [default note](#the-default-note) (`Ctrl+D`) |
 | Search | Opens the [fuzzy finder](#fuzzy-finder) (`Ctrl+P`) |
 | Search text | Opens [full-text search](#full-text-search) (`Ctrl+Shift+F`) |
 | New note | [Creates a note](#creating-renaming-and-deleting-notes) (`Ctrl+N`) |
@@ -87,11 +87,12 @@ into the ⋮ menu of the main screen:
 
 ## The default note
 
-The home button, or `Ctrl+D`, opens the default note, `TurboNote.md` at the
-top of the notes folder. It is meant as a scratchpad for anything that needs
-writing down *now*: it opens with the cursor at the end, ready for typing.
+The lightning bolt button, or `Ctrl+D`, opens the default note,
+`TurboNote.md` at the top of the notes folder. It is meant as a scratchpad for
+anything that needs writing down *now*: it opens with the cursor at the end,
+ready for typing.
 
-If the note does not exist yet, the home button creates it with a
+If the note does not exist yet, the bolt button creates it with a
 `# TurboNote` heading. Pressing the button while the note is already open
 puts the cursor back at its end.
 
@@ -376,8 +377,8 @@ back to discard the changes.
 - **Notes folder**: the folder TurboNotes works on. Type a path, or use the
   reset button to go back to the default. A red card warns when TurboNotes
   cannot write to the folder. A folder that does not exist yet is created.
-- **Default note**: the note the [home button](#the-default-note) opens,
-  relative to the notes folder. The reset button sets it back to
+- **Default note**: the note the [lightning bolt button](#the-default-note)
+  opens, relative to the notes folder. The reset button sets it back to
   `TurboNote.md`.
 - **Open notes in**: the editor notes open in. This also changes whenever you
   switch editors on a note.
