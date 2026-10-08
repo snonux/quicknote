@@ -251,6 +251,9 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
     if (mounted) setState(() => _tree = _buildTree());
   }
 
+  /// A note's text from the search index, so it opens without a disk read.
+  String? _cachedText(String path) => _index.value?[path]?.text;
+
   List<String> _existing(List<String> paths) => [
     for (final p in paths)
       if (_notes.contains(p)) p,
@@ -349,6 +352,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
           viKeys: _viKeys,
           onModeChanged: _setMode,
           onSaved: _onSaved,
+          cachedText: _cachedText,
           pinned: _isPinned(path),
           onTogglePin: () => _togglePin(path),
           onShare: (text) => _share(path, text: text),
@@ -933,6 +937,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
                   onLeave: _treeFocus.requestFocus,
                   onModeChanged: _setMode,
                   onSaved: _onSaved,
+                  cachedText: _cachedText,
                   onDirtyChanged: (d) {
                     if (mounted) setState(() => _editorDirty = d);
                   },
