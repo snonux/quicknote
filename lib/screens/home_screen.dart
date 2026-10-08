@@ -342,7 +342,7 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       _notePageOpen = true;
     });
     await Navigator.of(context).push(
-      MaterialPageRoute<void>(
+      _NoteRoute(
         builder: (_) => NotePage(
           store: store,
           path: path,
@@ -946,4 +946,18 @@ class _HomeScreenState extends State<HomeScreen> with WidgetsBindingObserver {
       ],
     );
   }
+}
+
+/// A note's own screen, sliding in quicker than Material's default page
+/// transition (450 ms on Android), which made opening a note feel slow.
+class _NoteRoute extends MaterialPageRoute<void> {
+  _NoteRoute({required super.builder});
+
+  static const _duration = Duration(milliseconds: 200);
+
+  @override
+  Duration get transitionDuration => _duration;
+
+  @override
+  Duration get reverseTransitionDuration => _duration;
 }
