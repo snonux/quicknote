@@ -141,17 +141,14 @@ void main() {
   test('attachment paths sit in the note folder, named after the note', () {
     final at = DateTime(2026, 10, 7, 18, 2, 15);
     expect(attachmentPathFor('a/to do.md', '.png', at), (
-      path: 'a/attachments/to-do-20261007-180215.png',
-      link: 'attachments/to-do-20261007-180215.png',
+      path: 'a/to-do-20261007-180215.png',
+      link: 'to-do-20261007-180215.png',
     ));
-    expect(
-      attachmentPathFor('n.md', 'jpg', at).path,
-      'attachments/n-20261007-180215.jpg',
-    );
+    expect(attachmentPathFor('n.md', 'jpg', at).path, 'n-20261007-180215.jpg');
     // A second image in the same second gets a suffix, as quick capture does.
     expect(
       attachmentPathFor('n.md', '.png', at, suffix: 1).link,
-      'attachments/n-20261007-180215-1.png',
+      'n-20261007-180215-1.png',
     );
   });
 

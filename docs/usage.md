@@ -258,13 +258,13 @@ WYSIWYG editor:
 
 ![The image menu on a phone](images/phone-image-menu.png)
 
-The image goes into an `attachments` folder next to the note, named after
-the note and the time, for example
-`projects/attachments/roadmap-20261007-193012.png`. The note gets a
+The image is saved right next to the note, in the same folder, named after
+the note and the time, for example `projects/roadmap-20261007-193012.png`
+for the note `projects/roadmap.md`. The note gets a
 Markdown image link to it on a line of its own:
 
 ```markdown
-![](attachments/roadmap-20261007-193012.png)
+![](roadmap-20261007-193012.png)
 ```
 
 The WYSIWYG editor shows the image in place, up to 320 pixels high. When the
@@ -370,8 +370,8 @@ does the same.
 
 **Share target.** In any app, share text or images and pick **Quick note**.
 The same dialog opens with the shared text filled in, so you can edit it
-before adding it. Shared images are saved to the `attachments` folder next
-to the default note and linked in it, as with [pasted images](#images).
+before adding it. Shared images are saved right next to the default note
+and linked in it, as with [pasted images](#images).
 
 The text is added even when TurboNotes has the default note open: the note
 reloads with the new text when you return to it, or you are asked as in

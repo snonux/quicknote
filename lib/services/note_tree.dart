@@ -87,7 +87,8 @@ String conflictCopyPath(String path, DateTime at) {
 
 /// Where an image added to the note at [notePath] is stored, and the link
 /// the note gets for it: `a/to do.md` ->
-/// (`a/attachments/to-do-20261007-180215.png`, `attachments/to-do-20261007-180215.png`).
+/// (`a/to-do-20261007-180215.png`, `to-do-20261007-180215.png`): right next
+/// to the note, so the image travels with it.
 /// A [suffix] above 0 tells apart images added in the same second
 /// (`to-do-20261007-180215-1.png`), as quick capture does.
 ({String path, String link}) attachmentPathFor(
@@ -105,7 +106,7 @@ String conflictCopyPath(String path, DateTime at) {
   ).replaceAll(RegExp(r'[^\p{L}\p{N}_-]+', unicode: true), '-');
   final ext = extension.startsWith('.') ? extension : '.$extension';
   final unique = suffix > 0 ? '$stamp-$suffix' : stamp;
-  final link = 'attachments/${stem.isEmpty ? 'image' : stem}-$unique$ext';
+  final link = '${stem.isEmpty ? 'image' : stem}-$unique$ext';
   final folder = parentPath(notePath);
   return (path: folder.isEmpty ? link : '$folder/$link', link: link);
 }

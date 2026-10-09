@@ -10,7 +10,8 @@ bool isNotePath(String path) =>
     kNoteExtensions.contains(p.posix.extension(path).toLowerCase());
 
 /// Image files a note can embed (pasted or shared images). They live next to
-/// the notes, usually in an `attachments` folder, and never show in the tree.
+/// the notes, right beside the note that links them, and never show in the
+/// tree.
 const List<String> kImageExtensions = [
   '.png',
   '.jpg',

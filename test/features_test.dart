@@ -291,7 +291,7 @@ void main() {
     );
     await tester.pumpAndSettle();
     final stored = store.files.keys.single;
-    expect(stored, startsWith('work/attachments/plan-'));
+    expect(stored, startsWith('work/plan-'));
     expect(store.files[stored], kPng);
     expect(fieldText(tester), contains('![](${stored.substring(5)})'));
 
@@ -364,7 +364,7 @@ void main() {
     await insertFrom('Camera');
     expect(calls, ['pickImages', 'takePhoto']);
     expect(store.files, hasLength(3));
-    expect(fieldText(tester).split('![](attachments/plan-'), hasLength(4));
+    expect(fieldText(tester).split('![](plan-'), hasLength(4));
   });
 
   testWidgets('cancelling the camera adds nothing', (tester) async {

@@ -81,7 +81,7 @@ internal class DefaultNote(private val context: Context) {
         val folder = path.substringBeforeLast('/', "")
         for (n in 0 until 100) {
             val suffix = if (n == 0) "" else "-$n"
-            val link = "attachments/$stem-$stamp$suffix$extension"
+            val link = "$stem-$stamp$suffix$extension"
             val target = if (folder.isEmpty()) link else "$folder/$link"
             try {
                 val tree = treeUri
