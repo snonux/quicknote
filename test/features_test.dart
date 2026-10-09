@@ -1,4 +1,6 @@
 import 'package:flutter/gestures.dart' show kSecondaryButton;
+import 'package:flutter/foundation.dart'
+    show debugDefaultTargetPlatformOverride;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
@@ -281,7 +283,9 @@ void main() {
     await tester.pumpAndSettle();
     await tester.tap(find.text('WYSIWYG'));
     await tester.pumpAndSettle();
-    await tester.tap(find.byTooltip('Paste image from clipboard'));
+    await tester.tap(find.byTooltip('Insert image'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Clipboard'));
     await tester.runAsync(
       () => Future<void>.delayed(const Duration(milliseconds: 200)),
     );
@@ -303,5 +307,103 @@ void main() {
     await tester.pumpAndSettle();
     // Even within the same second, the second image gets its own file.
     expect(store.files, hasLength(2));
+  });
+
+  testWidgets('the gallery and the camera add images in the Raw editor', (
+    tester,
+  ) async {
+    const images = MethodChannel('org.buetow.turbonotes/images');
+    final calls = <String>[];
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(images, (
+      call,
+    ) async {
+      calls.add(call.method);
+      return switch (call.method) {
+        'pickImages' => [
+          {'bytes': kPng, 'mime': 'image/png'},
+          {'bytes': kPng, 'mime': 'image/jpeg'},
+        ],
+        _ => {'bytes': kPng, 'mime': 'image/jpeg'},
+      };
+    });
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        images,
+        null,
+      ),
+    );
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('folder:work')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('note:work/plan.md')));
+    await tester.pumpAndSettle();
+
+    Future<void> insertFrom(String source) async {
+      await tester.tap(find.byTooltip('Insert image'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(source));
+      // Storing and decoding each image runs outside the fake clock.
+      for (var i = 0; i < 5; i++) {
+        await tester.runAsync(
+          () => Future<void>.delayed(const Duration(milliseconds: 100)),
+        );
+        await tester.pumpAndSettle();
+      }
+    }
+
+    await insertFrom('Gallery');
+    expect(calls, ['pickImages']);
+    final picked = store.files.keys.toList()..sort();
+    expect(picked, hasLength(2));
+    expect(picked.where((p) => p.endsWith('.jpg')), hasLength(1));
+    expect(picked.where((p) => p.endsWith('.png')), hasLength(1));
+    for (final path in picked) {
+      expect(fieldText(tester), contains('![](${path.substring(5)})'));
+    }
+
+    await insertFrom('Camera');
+    expect(calls, ['pickImages', 'takePhoto']);
+    expect(store.files, hasLength(3));
+    expect(fieldText(tester).split('![](attachments/plan-'), hasLength(4));
+  });
+
+  testWidgets('cancelling the camera adds nothing', (tester) async {
+    const images = MethodChannel('org.buetow.turbonotes/images');
+    tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+      images,
+      (call) async => null,
+    );
+    addTearDown(
+      () => tester.binding.defaultBinaryMessenger.setMockMethodCallHandler(
+        images,
+        null,
+      ),
+    );
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('folder:work')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('note:work/plan.md')));
+    await tester.pumpAndSettle();
+    final before = fieldText(tester);
+    await tester.tap(find.byTooltip('Insert image'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Camera'));
+    await tester.pumpAndSettle();
+    expect(store.files, isEmpty);
+    expect(fieldText(tester), before);
+    expect(find.byType(SnackBar), findsNothing);
+  });
+
+  testWidgets('the desktop image button pastes right away', (tester) async {
+    debugDefaultTargetPlatformOverride = TargetPlatform.linux;
+    addTearDown(() => debugDefaultTargetPlatformOverride = null);
+    await pumpHome(tester);
+    await tester.tap(find.byKey(const ValueKey('folder:work')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.byKey(const ValueKey('note:work/plan.md')));
+    await tester.pumpAndSettle();
+    expect(find.byTooltip('Insert image'), findsNothing);
+    expect(find.byTooltip('Paste image from clipboard'), findsOneWidget);
+    debugDefaultTargetPlatformOverride = null;
   });
 }

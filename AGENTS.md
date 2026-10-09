@@ -51,7 +51,10 @@ Toolchain: JDK **17 or 21** only. Gradle 8.14 rejects JDK 25 outright.
   `share_service.dart` hands the result to the Android share sheet, or to the
   clipboard and Downloads on Linux.
 - Platform channels besides SAF: `org.buetow.turbonotes/clipboard` (image
-  paste; `MainActivity.kt` and `linux/runner/clipboard_channel.cc`) and
+  paste; `MainActivity.kt` and `linux/runner/clipboard_channel.cc`),
+  `org.buetow.turbonotes/images` (gallery pick and camera, Android only;
+  `MainActivity.kt` and `DeviceImages.kt`; the camera writes into a
+  `ShareProvider` capture file, so no camera permission is needed) and
   `org.buetow.turbonotes/share` (`MainActivity.kt`, files served by
   `ShareProvider.kt`).
 - Android quick capture is native Kotlin, not Flutter, so it opens without

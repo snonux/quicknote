@@ -1,0 +1,1 @@
+Add images from the gallery or take a photo with the camera right into a note. The image button next to Save now works in both the Raw and the WYSIWYG editor, with Gallery, Camera and Clipboard to choose from. HEIC photos are saved as JPEG.

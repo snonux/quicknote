@@ -19,7 +19,8 @@ notes; TurboNotes edits the ones you already have.
 - **Fuzzy finder** for note names and **full-text search** across all notes
   that forgives typos.
 - **Raw and WYSIWYG editors** on the same Markdown text. WYSIWYG never
-  rewrites a note and shows **pasted images** inline.
+  rewrites a note and shows **images** inline, added from the gallery, the
+  camera or the clipboard.
 - **Share** a note to other apps as text, PDF or image.
 - **Vi keys** on the Linux desktop build: vi-style navigation in the
   sidebar, and optional modal editing (normal, insert, visual) in the editor.

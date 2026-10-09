@@ -221,7 +221,6 @@ again removes the formatting.
 | Link | `[text](https://)`, with the selection as the text and the URL selected for typing |
 | Bulleted / numbered list | `- ` / `1. ` at the start of the line |
 | Task | `- [ ] `; on a task line it ticks or unticks it |
-| Image | Pastes an image from the clipboard; see [Images](#images) |
 | Quote | `> ` at the start of the line |
 
 Press `Enter` at the end of a list item and the next line continues the list:
@@ -231,6 +230,9 @@ item ends the list.
 `Ctrl+B` and `Ctrl+I` also work in the Raw editor. On a phone the toolbar
 scrolls sideways.
 
+The image button next to **Save** adds an image in both editors; see
+[Images](#images).
+
 The note screen's ⋮ menu has **Pin**, **Share…**, **Rename / move** and
 **Delete**:
 
@@ -238,14 +240,23 @@ The note screen's ⋮ menu has **Pin**, **Share…**, **Rename / move** and
 
 ## Images
 
-Paste an image into a note and TurboNotes saves it next to the note and links
-it there:
+Add an image to a note and TurboNotes saves it next to the note and links it
+at the cursor. The image button next to **Save** works in the Raw and the
+WYSIWYG editor:
 
-- **On Android**, copy an image (a screenshot, an image from the browser),
-  then press the image button in the toolbar. Keyboards that insert images,
-  such as Gboard's clipboard, work too.
-- **On the Linux desktop**, `Ctrl+V` pastes an image when the clipboard holds
-  one and no text. The toolbar button works as well.
+- **On Android** it opens a menu:
+  - **Gallery** picks one or more images from your photos (up to 20 at a
+    time). HEIC photos are saved as JPEG.
+  - **Camera** opens your camera app; the photo you take goes into the note.
+    TurboNotes needs no camera permission for this.
+  - **Clipboard** pastes a copied image (a screenshot, an image from the
+    browser).
+
+  Keyboards that insert images, such as Gboard's clipboard, work too.
+- **On the Linux desktop** the button pastes the image on the clipboard, and
+  so does `Ctrl+V` when the clipboard holds an image and no text.
+
+![The image menu on a phone](images/phone-image-menu.png)
 
 The image goes into an `attachments` folder next to the note, named after
 the note and the time, for example
