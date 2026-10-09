@@ -1,12 +1,14 @@
 import 'dart:async';
 import 'dart:ui' show AppExitResponse;
 
+import 'package:flutter/foundation.dart' show defaultTargetPlatform;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../editor/markdown_controller.dart';
 import '../editor/vi_engine.dart';
 import '../services/clipboard_image.dart';
+import '../services/device_images.dart';
 import '../services/note_store.dart';
 import '../services/note_tree.dart';
 import '../services/preferences.dart';
@@ -15,6 +17,8 @@ import 'format_toolbar.dart';
 import 'note_image.dart';
 
 enum _Conflict { cancel, reload, overwrite }
+
+enum _ImageSource { gallery, camera, clipboard }
 
 /// Editor for one note, with a Raw / WYSIWYG switch.
 ///
@@ -428,7 +432,7 @@ class NoteEditorState extends State<NoteEditor> {
   /// Inserts the clipboard's image, or says there is none.
   Future<void> pasteImage() async {
     final path = widget.path;
-    final ClipboardImageData? image;
+    final ImageBytes? image;
     try {
       image = await readClipboardImage();
     } catch (e) {
@@ -440,6 +444,36 @@ class NoteEditorState extends State<NoteEditor> {
       _snack('The clipboard holds no image.');
       return;
     }
+    await insertImage(image.bytes, image.extension);
+  }
+
+  /// Inserts images picked from the gallery, one after another.
+  Future<void> pickImages() async {
+    final path = widget.path;
+    final List<ImageBytes> images;
+    try {
+      images = await pickGalleryImages();
+    } catch (e) {
+      _snack('Could not add the image: ${describeError(e)}', error: true);
+      return;
+    }
+    for (final image in images) {
+      if (!mounted || path != widget.path) return;
+      await insertImage(image.bytes, image.extension);
+    }
+  }
+
+  /// Inserts a photo taken with the camera app.
+  Future<void> takePhoto() async {
+    final path = widget.path;
+    final ImageBytes? image;
+    try {
+      image = await takeCameraPhoto();
+    } catch (e) {
+      _snack('Could not add the photo: ${describeError(e)}', error: true);
+      return;
+    }
+    if (image == null || !mounted || path != widget.path) return;
     await insertImage(image.bytes, image.extension);
   }
 
@@ -729,12 +763,7 @@ class NoteEditorState extends State<NoteEditor> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _header(theme),
-          if (wysiwyg)
-            FormatToolbar(
-              controller: _controller,
-              focus: _focus,
-              onPasteImage: pasteImage,
-            ),
+          if (wysiwyg) FormatToolbar(controller: _controller, focus: _focus),
           const Divider(height: 1),
           Expanded(
             child: TextField(
@@ -863,6 +892,45 @@ class NoteEditorState extends State<NoteEditor> {
     );
   }
 
+  /// Adds an image to the note in either mode. Android offers the gallery
+  /// and the camera besides the clipboard; the desktop pastes right away.
+  Widget _imageButton() {
+    const icon = Icon(Icons.add_photo_alternate_outlined);
+    if (defaultTargetPlatform != TargetPlatform.android) {
+      return IconButton(
+        tooltip: 'Paste image from clipboard',
+        icon: icon,
+        onPressed: pasteImage,
+      );
+    }
+    PopupMenuItem<_ImageSource> item(
+      _ImageSource value,
+      IconData icon,
+      String label,
+    ) => PopupMenuItem(
+      value: value,
+      child: ListTile(
+        leading: Icon(icon),
+        title: Text(label),
+        contentPadding: EdgeInsets.zero,
+      ),
+    );
+    return PopupMenuButton<_ImageSource>(
+      tooltip: 'Insert image',
+      icon: icon,
+      onSelected: (source) => switch (source) {
+        _ImageSource.gallery => pickImages(),
+        _ImageSource.camera => takePhoto(),
+        _ImageSource.clipboard => pasteImage(),
+      },
+      itemBuilder: (context) => [
+        item(_ImageSource.gallery, Icons.photo_library_outlined, 'Gallery'),
+        item(_ImageSource.camera, Icons.photo_camera_outlined, 'Camera'),
+        item(_ImageSource.clipboard, Icons.content_paste, 'Clipboard'),
+      ],
+    );
+  }
+
   /// [compact] drops the mode labels (the tooltips stay) so the header fits
   /// one row on a phone.
   Widget _headerRow(ThemeData theme, {required bool compact}) {
@@ -907,6 +975,7 @@ class NoteEditorState extends State<NoteEditor> {
                     ),
                   ),
                 ),
+              _imageButton(),
               IconButton(
                 tooltip: 'Revert to saved',
                 icon: const Icon(Icons.undo),

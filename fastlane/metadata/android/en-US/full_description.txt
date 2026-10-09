@@ -5,7 +5,7 @@ TurboNotes edits a folder of plain Markdown files. Point it at any folder, for e
 <li><b>Fuzzy finder</b>: type a few letters of a note's path to jump to it.</li>
 <li><b>Full-text search</b> across all notes that forgives typos, with #tag filters.</li>
 <li><b>Pinned and recent notes</b>, and a <b>tag tree</b> built from #tags that filters the file tree.</li>
-<li><b>Images</b> pasted into a note are stored next to it and shown inline.</li>
+<li><b>Images</b> from the gallery, the camera or the clipboard are stored next to the note and shown inline.</li>
 <li><b>Share</b> a note to other apps as text, PDF or image.</li>
 <li><b>Quick capture</b>: a home-screen widget and a share target add text or images to the default note without opening the app.</li>
 <li><b>Raw editor</b> for the Markdown source exactly as it is on disk.</li>

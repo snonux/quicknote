@@ -14,6 +14,7 @@ import android.os.Environment
 import android.os.Handler
 import android.os.Looper
 import android.provider.DocumentsContract
+import android.provider.MediaStore
 import android.provider.OpenableColumns
 import android.provider.Settings
 import io.flutter.embedding.android.FlutterActivity
@@ -31,10 +32,15 @@ class MainActivity : FlutterActivity() {
     private val safNotesChannelName = "org.buetow.turbonotes/saf-notes"
     private val clipboardChannelName = "org.buetow.turbonotes/clipboard"
     private val shareChannelName = "org.buetow.turbonotes/share"
+    private val imagesChannelName = "org.buetow.turbonotes/images"
     private val requestLegacyStorage = 4203
     private val requestNoteTree = 4204
+    private val requestPickImages = 4205
+    private val requestTakePhoto = 4206
     private var pendingStorageResult: MethodChannel.Result? = null
     private var pendingTreeResult: MethodChannel.Result? = null
+    private var pendingImageResult: MethodChannel.Result? = null
+    private var pendingPhoto: File? = null
 
     // Document providers can be slow (cloud-backed ones especially), so all
     // note I/O runs off the main thread, one request at a time and in order.
@@ -121,6 +127,13 @@ class MainActivity : FlutterActivity() {
                 }
             }
         }
+        MethodChannel(messenger, imagesChannelName).setMethodCallHandler { call, result ->
+            when (call.method) {
+                "pickImages" -> pickImages(result)
+                "takePhoto" -> takePhoto(result)
+                else -> result.notImplemented()
+            }
+        }
         MethodChannel(messenger, shareChannelName).setMethodCallHandler { call, result ->
             try {
                 when (call.method) {
@@ -202,6 +215,115 @@ class MainActivity : FlutterActivity() {
         }
     }
 
+    /** Opens the photo picker (Android 13+) or the system image chooser. */
+    private fun pickImages(result: MethodChannel.Result) {
+        val intent = if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            Intent(MediaStore.ACTION_PICK_IMAGES).apply {
+                type = "image/*"
+                putExtra(MediaStore.EXTRA_PICK_IMAGES_MAX,
+                    minOf(maxPickedImages, MediaStore.getPickImagesMaxLimit()))
+            }
+        } else {
+            Intent(Intent.ACTION_GET_CONTENT).apply {
+                type = "image/*"
+                addCategory(Intent.CATEGORY_OPENABLE)
+                putExtra(Intent.EXTRA_ALLOW_MULTIPLE, true)
+            }
+        }
+        startImageActivity(intent, requestPickImages, result, "No gallery app is available.")
+    }
+
+    /** Has the camera app take a photo into an empty file of the app's cache. */
+    private fun takePhoto(result: MethodChannel.Result) {
+        if (pendingImageResult != null) {
+            result.error("busy", "Another image dialog is already open.", null)
+            return
+        }
+        val file: File
+        try {
+            val dir = ShareProvider.captureDir(this)
+            dir.mkdirs()
+            // Photos left over from a camera trip the app did not survive.
+            dir.listFiles()?.forEach { it.delete() }
+            file = File(dir, "photo-${System.currentTimeMillis()}.jpg")
+            file.createNewFile()
+        } catch (e: Exception) {
+            result.error("io", e.message ?: e.toString(), null)
+            return
+        }
+        val uri = ShareProvider.captureUriFor(file)
+        val intent = Intent(MediaStore.ACTION_IMAGE_CAPTURE).apply {
+            putExtra(MediaStore.EXTRA_OUTPUT, uri)
+            // The grant reaches the camera app only through the clip data.
+            clipData = ClipData.newRawUri("", uri)
+            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION or Intent.FLAG_GRANT_WRITE_URI_PERMISSION)
+        }
+        pendingPhoto = file
+        if (!startImageActivity(intent, requestTakePhoto, result, "No camera app is available.")) {
+            pendingPhoto = null
+            file.delete()
+        }
+    }
+
+    private fun startImageActivity(
+        intent: Intent,
+        requestCode: Int,
+        result: MethodChannel.Result,
+        missing: String,
+    ): Boolean {
+        if (pendingImageResult != null) {
+            result.error("busy", "Another image dialog is already open.", null)
+            return false
+        }
+        pendingImageResult = result
+        try {
+            startActivityForResult(intent, requestCode)
+            return true
+        } catch (e: ActivityNotFoundException) {
+            pendingImageResult = null
+            result.error("no_app", missing, null)
+        } catch (e: SecurityException) {
+            pendingImageResult = null
+            result.error("access_denied", e.message ?: e.toString(), null)
+        }
+        return false
+    }
+
+    /** Reads what the gallery or camera returned, off the main thread. */
+    private fun finishImageRequest(requestCode: Int, resultCode: Int, data: Intent?) {
+        val result = pendingImageResult ?: return
+        pendingImageResult = null
+        val photo = pendingPhoto
+        pendingPhoto = null
+        val uris = if (requestCode == requestPickImages && resultCode == Activity.RESULT_OK) {
+            val clip = data?.clipData
+            if (clip != null) (0 until clip.itemCount).mapNotNull { clip.getItemAt(it).uri }
+            else listOfNotNull(data?.data)
+        } else {
+            emptyList()
+        }
+        val main = Handler(Looper.getMainLooper())
+        val work = Runnable {
+            try {
+                val value: Any? = if (requestCode == requestTakePhoto) {
+                    if (resultCode == Activity.RESULT_OK) {
+                        photo?.let { readPhoto(it) }
+                    } else {
+                        photo?.delete()
+                        null
+                    }
+                } else {
+                    uris.take(maxPickedImages).map { readImage(contentResolver, it) }
+                }
+                main.post { result.success(value) }
+            } catch (e: Exception) {
+                main.post { result.error("io", e.message ?: e.toString(), null) }
+            }
+        }
+        val executor = safExecutor
+        if (executor != null) executor.execute(work) else Thread(work).start()
+    }
+
     private fun releaseTree(call: MethodCall, result: MethodChannel.Result) {
         val raw = call.argument<String>("uri")
         if (raw == null) {
@@ -225,6 +347,10 @@ class MainActivity : FlutterActivity() {
     @Deprecated("Deprecated in Java")
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == requestPickImages || requestCode == requestTakePhoto) {
+            finishImageRequest(requestCode, resultCode, data)
+            return
+        }
         if (requestCode != requestNoteTree) return
         val result = pendingTreeResult ?: return
         pendingTreeResult = null

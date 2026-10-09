@@ -10,14 +10,10 @@ class FormatToolbar extends StatelessWidget {
     super.key,
     required this.controller,
     required this.focus,
-    this.onPasteImage,
   });
 
   final MarkdownEditingController controller;
   final FocusNode focus;
-
-  /// Inserts the image on the clipboard, if the editor can store images.
-  final VoidCallback? onPasteImage;
 
   @override
   Widget build(BuildContext context) {
@@ -69,12 +65,6 @@ class FormatToolbar extends StatelessWidget {
             () => controller.toggleWrap('`'),
           ),
           button('Link', const Icon(Icons.link), controller.insertLink),
-          if (onPasteImage != null)
-            button(
-              'Paste image from clipboard',
-              const Icon(Icons.add_photo_alternate_outlined),
-              onPasteImage!,
-            ),
           const _Separator(),
           button(
             'Bulleted list',

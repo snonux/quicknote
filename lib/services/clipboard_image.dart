@@ -1,7 +1,7 @@
 import 'package:flutter/services.dart';
 
-/// An image read from the system clipboard.
-typedef ClipboardImageData = ({Uint8List bytes, String extension});
+/// An image to store next to a note: its bytes and file extension.
+typedef ImageBytes = ({Uint8List bytes, String extension});
 
 const _channel = MethodChannel('org.buetow.turbonotes/clipboard');
 
@@ -18,7 +18,7 @@ String? imageExtensionFor(String mime) => switch (mime.toLowerCase()) {
 /// [PlatformException] when it holds one that cannot be read (too large). Flutter's own
 /// clipboard API is text-only, so the platform runner reads it (GTK on Linux,
 /// ClipboardManager on Android).
-Future<ClipboardImageData?> readClipboardImage() async {
+Future<ImageBytes?> readClipboardImage() async {
   try {
     final result = await _channel.invokeMapMethod<String, Object?>('readImage');
     final bytes = result?['bytes'];
